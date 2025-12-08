@@ -23,6 +23,9 @@ namespace XvTHydrospanner.Views
             WarehousePathTextBox.Text = config.WarehousePath;
             AutoBackupCheckBox.IsChecked = config.AutoBackup;
             ConfirmApplyCheckBox.IsChecked = config.ConfirmBeforeApply;
+            RemoteOwnerTextBox.Text = config.RemoteRepositoryOwner ?? string.Empty;
+            RemoteRepoTextBox.Text = config.RemoteRepositoryName ?? string.Empty;
+            RemoteBranchTextBox.Text = config.RemoteRepositoryBranch ?? string.Empty;
         }
         
         private void BrowseGamePath_Click(object sender, RoutedEventArgs e)
@@ -61,6 +64,14 @@ namespace XvTHydrospanner.Views
                 config.WarehousePath = WarehousePathTextBox.Text;
                 config.AutoBackup = AutoBackupCheckBox.IsChecked ?? true;
                 config.ConfirmBeforeApply = ConfirmApplyCheckBox.IsChecked ?? true;
+                
+                // Save remote repository settings (null if empty)
+                config.RemoteRepositoryOwner = string.IsNullOrWhiteSpace(RemoteOwnerTextBox.Text) 
+                    ? null : RemoteOwnerTextBox.Text;
+                config.RemoteRepositoryName = string.IsNullOrWhiteSpace(RemoteRepoTextBox.Text) 
+                    ? null : RemoteRepoTextBox.Text;
+                config.RemoteRepositoryBranch = string.IsNullOrWhiteSpace(RemoteBranchTextBox.Text) 
+                    ? null : RemoteBranchTextBox.Text;
                 
                 await _configManager.UpdateConfigAsync(config);
                 

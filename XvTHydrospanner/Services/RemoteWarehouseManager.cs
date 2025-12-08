@@ -16,6 +16,9 @@ namespace XvTHydrospanner.Services
     {
         private readonly HttpClient _httpClient;
         private readonly WarehouseManager _localWarehouse;
+        private readonly string _repositoryOwner;
+        private readonly string _repositoryName;
+        private readonly string _branch;
         private RemoteCatalog? _remoteCatalog;
         
         public event EventHandler<RemoteWarehouseFile>? FileDownloaded;
@@ -26,11 +29,14 @@ namespace XvTHydrospanner.Services
         private const string DefaultRepositoryName = "XvTHydrospanner-Mods";
         private const string DefaultBranch = "main";
         
-        public RemoteWarehouseManager(WarehouseManager localWarehouse)
+        public RemoteWarehouseManager(WarehouseManager localWarehouse, string? owner = null, string? repo = null, string? branch = null)
         {
             _httpClient = new HttpClient();
             _httpClient.DefaultRequestHeaders.Add("User-Agent", "XvTHydrospanner-ModManager");
             _localWarehouse = localWarehouse;
+            _repositoryOwner = owner ?? DefaultRepositoryOwner;
+            _repositoryName = repo ?? DefaultRepositoryName;
+            _branch = branch ?? DefaultBranch;
         }
         
         /// <summary>
@@ -41,9 +47,9 @@ namespace XvTHydrospanner.Services
             string? repo = null, 
             string? branch = null)
         {
-            owner ??= DefaultRepositoryOwner;
-            repo ??= DefaultRepositoryName;
-            branch ??= DefaultBranch;
+            owner ??= _repositoryOwner;
+            repo ??= _repositoryName;
+            branch ??= _branch;
             
             var catalogUrl = $"https://raw.githubusercontent.com/{owner}/{repo}/{branch}/catalog.json";
             

@@ -78,7 +78,11 @@ namespace XvTHydrospanner
                 // Initialize services with loaded config
                 _profileManager = new ProfileManager(config.ProfilesPath);
                 _warehouseManager = new WarehouseManager(config.WarehousePath);
-                _remoteWarehouseManager = new RemoteWarehouseManager(_warehouseManager);
+                _remoteWarehouseManager = new RemoteWarehouseManager(
+                    _warehouseManager, 
+                    config.RemoteRepositoryOwner, 
+                    config.RemoteRepositoryName, 
+                    config.RemoteRepositoryBranch);
                 _modApplicator = new ModApplicator(config.GameInstallPath, config.BackupPath, _warehouseManager);
                 
                 // Load data
