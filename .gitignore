@@ -81,3 +81,6 @@ TestResult.xml
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# GitHub Copilot CLI
+copilot.exe
