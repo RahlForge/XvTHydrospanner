@@ -27,6 +27,9 @@ bld/
 # Visual Studio cache/options directory
 .vs/
 
+# JetBrains Rider
+.idea/
+
 # Visual Studio profiler
 *.psess
 *.vsp
