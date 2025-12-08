@@ -1,6 +1,8 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
 
@@ -8,11 +10,36 @@ namespace XvTHydrospanner.Views
 {
     public partial class FileLocationPromptDialog : Window
     {
+        public class LocationSelection : INotifyPropertyChanged
+        {
+            private string _location = "";
+            
+            public string Location
+            {
+                get => _location;
+                set
+                {
+                    if (_location != value)
+                    {
+                        _location = value;
+                        OnPropertyChanged();
+                    }
+                }
+            }
+            
+            public event PropertyChangedEventHandler? PropertyChanged;
+            
+            protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+            {
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+            }
+        }
+        
         public class FileLocationItem
         {
             public string FileName { get; set; } = "";
             public ObservableCollection<string> AvailableLocations { get; set; } = new();
-            public ObservableCollection<string> SelectedLocations { get; set; } = new();
+            public ObservableCollection<LocationSelection> SelectedLocations { get; set; } = new();
         }
         
         private ObservableCollection<FileLocationItem> _items = new();
@@ -32,7 +59,7 @@ namespace XvTHydrospanner.Views
                     FileName = fileName,
                     AvailableLocations = new ObservableCollection<string>(locations)
                 };
-                item.SelectedLocations.Add(locations.FirstOrDefault() ?? "");
+                item.SelectedLocations.Add(new LocationSelection { Location = locations.FirstOrDefault() ?? "" });
                 _items.Add(item);
             }
             
@@ -108,7 +135,11 @@ namespace XvTHydrospanner.Views
             if (sender is Button button && button.Tag is FileLocationItem item)
             {
                 var locations = GetAvailableLocations();
-                item.SelectedLocations.Add(locations.FirstOrDefault() ?? "");
+                // Add with second location by default to differentiate from first
+                var defaultLocation = item.SelectedLocations.Count > 0 && item.SelectedLocations.Count < locations.Count 
+                    ? locations[item.SelectedLocations.Count % locations.Count]
+                    : locations.FirstOrDefault() ?? "";
+                item.SelectedLocations.Add(new LocationSelection { Location = defaultLocation });
             }
         }
         
@@ -118,7 +149,7 @@ namespace XvTHydrospanner.Views
             {
                 if (item.SelectedLocations.Count > 1)
                 {
-                    var selectedLocation = ((FrameworkElement)sender).DataContext as string;
+                    var selectedLocation = ((FrameworkElement)sender).DataContext as LocationSelection;
                     if (selectedLocation != null)
                     {
                         item.SelectedLocations.Remove(selectedLocation);
@@ -134,43 +165,18 @@ namespace XvTHydrospanner.Views
         
         private void LocationComboBox_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
         {
-            if (sender is System.Windows.Controls.ComboBox comboBox && comboBox.DataContext is string oldLocation)
-            {
-                var newLocation = comboBox.SelectedItem as string;
-                if (newLocation != null && newLocation != oldLocation)
-                {
-                    // Find the parent FileLocationItem
-                    var border = FindAncestor<Border>(comboBox);
-                    if (border?.DataContext is FileLocationItem item)
-                    {
-                        var index = item.SelectedLocations.IndexOf(oldLocation);
-                        if (index >= 0)
-                        {
-                            item.SelectedLocations[index] = newLocation;
-                        }
-                    }
-                }
-            }
-        }
-        
-        private T? FindAncestor<T>(DependencyObject current) where T : DependencyObject
-        {
-            while (current != null)
-            {
-                if (current is T ancestor)
-                {
-                    return ancestor;
-                }
-                current = System.Windows.Media.VisualTreeHelper.GetParent(current);
-            }
-            return null;
+            // Simply update the Location property - two-way binding handles it
+            // No manual manipulation needed
         }
         
         private void OkButton_Click(object sender, RoutedEventArgs e)
         {
             foreach (var item in _items)
             {
-                var validLocations = item.SelectedLocations.Where(l => !string.IsNullOrEmpty(l)).ToList();
+                var validLocations = item.SelectedLocations
+                    .Where(l => !string.IsNullOrEmpty(l.Location))
+                    .Select(l => l.Location)
+                    .ToList();
                 
                 if (validLocations.Count == 0)
                 {
