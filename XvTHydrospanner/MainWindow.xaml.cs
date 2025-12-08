@@ -15,6 +15,7 @@ namespace XvTHydrospanner
         private ConfigurationManager? _configManager;
         private ProfileManager? _profileManager;
         private WarehouseManager? _warehouseManager;
+        private RemoteWarehouseManager? _remoteWarehouseManager;
         private ModApplicator? _modApplicator;
         
         public MainWindow()
@@ -77,6 +78,7 @@ namespace XvTHydrospanner
                 // Initialize services with loaded config
                 _profileManager = new ProfileManager(config.ProfilesPath);
                 _warehouseManager = new WarehouseManager(config.WarehousePath);
+                _remoteWarehouseManager = new RemoteWarehouseManager(_warehouseManager);
                 _modApplicator = new ModApplicator(config.GameInstallPath, config.BackupPath, _warehouseManager);
                 
                 // Load data
@@ -187,6 +189,14 @@ namespace XvTHydrospanner
             
             ContentFrame.Navigate(new WarehousePage(_warehouseManager));
             StatusText.Text = "Mod Warehouse";
+        }
+        
+        private void RemoteModsButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_remoteWarehouseManager == null) return;
+            
+            ContentFrame.Navigate(new RemoteModsPage(_remoteWarehouseManager));
+            StatusText.Text = "Remote Mod Library";
         }
         
         private void ActiveModsButton_Click(object sender, RoutedEventArgs e)

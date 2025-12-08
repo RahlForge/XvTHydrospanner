@@ -12,6 +12,8 @@
             
             <!-- Converters -->
             <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+            <converters:InverseBoolConverter x:Key="InverseBoolConverter"/>
+            <converters:FileSizeConverter x:Key="FileSizeConverter"/>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

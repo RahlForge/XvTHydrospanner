@@ -54,5 +54,20 @@ namespace XvTHydrospanner.Models
         /// Last directory used for importing files
         /// </summary>
         public string? LastImportDirectory { get; set; }
+        
+        /// <summary>
+        /// GitHub repository owner for remote mods (optional)
+        /// </summary>
+        public string? RemoteRepositoryOwner { get; set; }
+        
+        /// <summary>
+        /// GitHub repository name for remote mods (optional)
+        /// </summary>
+        public string? RemoteRepositoryName { get; set; }
+        
+        /// <summary>
+        /// GitHub repository branch for remote mods (optional)
+        /// </summary>
+        public string? RemoteRepositoryBranch { get; set; }
     }
 }
