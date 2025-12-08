@@ -14,6 +14,7 @@
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
         
         <!-- Archive File -->
@@ -34,8 +35,14 @@
                  Background="#2D2D30" Foreground="White" BorderBrush="#3F3F46" 
                  Padding="5" Margin="0,0,0,15" VerticalScrollBarVisibility="Auto"/>
         
+        <!-- Options -->
+        <CheckBox Grid.Row="6" x:Name="CopyToGameRootCheckBox" 
+                  Content="Also copy structure to game root (for XvT compatibility)"
+                  Foreground="White" Margin="0,0,0,15"
+                  ToolTip="When checked, files will be copied to both BalanceOfPower/ and the game root directory"/>
+        
         <!-- Files Preview -->
-        <GroupBox Grid.Row="6" Header="Files in Archive" Foreground="White" 
+        <GroupBox Grid.Row="7" Header="Files in Archive" Foreground="White" 
                   BorderBrush="#3F3F46" Margin="0,0,0,15">
             <ScrollViewer MaxHeight="100" VerticalScrollBarVisibility="Auto">
                 <TextBlock x:Name="FilesPreviewTextBlock" Foreground="#CCCCCC" 
@@ -44,7 +51,7 @@
         </GroupBox>
         
         <!-- Buttons -->
-        <StackPanel Grid.Row="7" Orientation="Horizontal" HorizontalAlignment="Right">
+        <StackPanel Grid.Row="8" Orientation="Horizontal" HorizontalAlignment="Right">
             <Button Content="Add Package" Width="100" Padding="10,5" Margin="0,0,10,0"
                     Click="AddButton_Click" IsDefault="True">
                 <Button.Style>

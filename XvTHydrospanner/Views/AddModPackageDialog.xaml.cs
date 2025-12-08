@@ -10,6 +10,7 @@ namespace XvTHydrospanner.Views
     {
         public string ModName => ModNameTextBox.Text;
         public string Description => DescriptionTextBox.Text;
+        public bool CopyToGameRoot => CopyToGameRootCheckBox.IsChecked ?? false;
         
         public AddModPackageDialog(string archivePath)
         {

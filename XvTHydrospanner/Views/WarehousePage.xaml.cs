@@ -81,7 +81,8 @@ namespace XvTHydrospanner.Views
                                 filePath,
                                 packageDialog.ModName,
                                 packageDialog.Description,
-                                customFileLocations: customLocations
+                                customFileLocations: customLocations,
+                                copyToGameRoot: packageDialog.CopyToGameRoot
                             );
                             LoadFiles();
                             MessageBox.Show($"Mod package '{packageDialog.ModName}' added to warehouse successfully.", "Success", 

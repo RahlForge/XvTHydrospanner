@@ -229,7 +229,7 @@ namespace XvTHydrospanner.Services
         /// Add a mod package from an archive file
         /// </summary>
         public async Task<ModPackage> AddModPackageFromArchiveAsync(string archivePath, string name, string description,
-            string? author = null, string? version = null, List<string>? tags = null, Dictionary<string, List<string>>? customFileLocations = null)
+            string? author = null, string? version = null, List<string>? tags = null, Dictionary<string, List<string>>? customFileLocations = null, bool copyToGameRoot = false)
         {
             if (ArchiveExtractor.IsArchive(archivePath) == false)
             {
@@ -268,6 +268,14 @@ namespace XvTHydrospanner.Services
                         // Determine category and target path based on folder structure and file extension
                         var (category, targetPath) = DetermineFilePathAndCategory(originalPath, fileName);
                         targetPaths.Add(targetPath);
+                        
+                        // If copyToGameRoot is enabled and the path starts with BalanceOfPower/
+                        if (copyToGameRoot && targetPath.StartsWith("BalanceOfPower/", StringComparison.OrdinalIgnoreCase))
+                        {
+                            // Also add the game root equivalent path
+                            var gameRootPath = targetPath.Substring("BalanceOfPower/".Length);
+                            targetPaths.Add(gameRootPath);
+                        }
                     }
                     
                     // Create a warehouse file for each target location
