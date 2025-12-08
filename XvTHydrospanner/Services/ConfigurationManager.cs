@@ -144,7 +144,7 @@ namespace XvTHydrospanner.Services
             
             return new AppConfig
             {
-                GameInstallPath = @"C:\GOG Games\Star Wars - XvT",
+                GameInstallPath = string.Empty,
                 WarehousePath = Path.Combine(appDataPath, "Warehouse"),
                 ProfilesPath = Path.Combine(appDataPath, "Profiles"),
                 BackupPath = Path.Combine(appDataPath, "Backups"),

@@ -51,9 +51,19 @@ namespace XvTHydrospanner
                 var config = await _configManager.LoadConfigAsync();
                 
                 // Validate configuration
-                var (isValid, _) = _configManager.ValidateConfig();
+                var (isValid, errors) = _configManager.ValidateConfig();
                 if (isValid == false)
                 {
+                    // Show message if game install path is not set
+                    if (string.IsNullOrWhiteSpace(config.GameInstallPath))
+                    {
+                        MessageBox.Show(
+                            "Game installation path is not configured.\n\nPlease select your Star Wars X-Wing vs TIE Fighter installation folder.",
+                            "Configuration Required",
+                            MessageBoxButton.OK,
+                            MessageBoxImage.Information);
+                    }
+                    
                     // Show settings dialog if config is invalid
                     var settingsWindow = new SettingsWindow(_configManager);
                     if (settingsWindow.ShowDialog() != true)
