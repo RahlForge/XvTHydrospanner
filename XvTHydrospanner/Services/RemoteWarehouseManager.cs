@@ -440,6 +440,182 @@ namespace XvTHydrospanner.Services
         }
         
         /// <summary>
+        /// Upload a mod package from local warehouse to remote GitHub repository
+        /// </summary>
+        public async Task UploadPackageAsync(ModPackage package, string githubToken)
+        {
+            if (string.IsNullOrEmpty(githubToken))
+                throw new InvalidOperationException("GitHub token is required for uploading packages");
+            
+            try
+            {
+                DownloadProgress?.Invoke(this, $"Uploading package {package.Name}...");
+                
+                // Get all files in the package
+                var packageFiles = _localWarehouse.GetPackageFiles(package.Id);
+                if (packageFiles.Count == 0)
+                {
+                    throw new InvalidOperationException($"Package '{package.Name}' has no files to upload");
+                }
+                
+                // Upload each file in the package
+                int uploadedCount = 0;
+                foreach (var file in packageFiles)
+                {
+                    DownloadProgress?.Invoke(this, $"Uploading file {++uploadedCount}/{packageFiles.Count}: {file.Name}");
+                    await UploadFileAsync(file, githubToken);
+                }
+                
+                // Now update the catalog with package information
+                await UpdateRemoteCatalogWithPackageAsync(package, githubToken);
+                
+                DownloadProgress?.Invoke(this, $"Package {package.Name} uploaded successfully");
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"Failed to upload package: {ex.Message}", ex);
+            }
+        }
+        
+        /// <summary>
+        /// Update or create remote catalog.json with new package entry
+        /// </summary>
+        private async Task UpdateRemoteCatalogWithPackageAsync(ModPackage package, string githubToken)
+        {
+            try
+            {
+                DownloadProgress?.Invoke(this, "Updating remote catalog with package...");
+                
+                // Try to get existing catalog
+                RemoteCatalog catalog;
+                string? existingCatalogSha = null;
+                
+                var catalogUrl = $"https://api.github.com/repos/{_repositoryOwner}/{_repositoryName}/contents/catalog.json?ref={_branch}";
+                var catalogRequest = new HttpRequestMessage(HttpMethod.Get, catalogUrl);
+                catalogRequest.Headers.Add("Authorization", $"Bearer {githubToken}");
+                catalogRequest.Headers.Add("Accept", "application/vnd.github+json");
+                
+                var catalogResponse = await _httpClient.SendAsync(catalogRequest);
+                
+                if (catalogResponse.IsSuccessStatusCode)
+                {
+                    // Catalog exists, download and update it
+                    var catalogContent = await catalogResponse.Content.ReadAsStringAsync();
+                    var catalogJson = JsonConvert.DeserializeObject<dynamic>(catalogContent);
+                    existingCatalogSha = catalogJson?.sha;
+                    
+                    var base64Content = catalogJson?.content?.ToString().Replace("\n", "");
+                    var decodedContent = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(base64Content));
+                    catalog = JsonConvert.DeserializeObject<RemoteCatalog>(decodedContent) ?? new RemoteCatalog();
+                }
+                else
+                {
+                    // Catalog doesn't exist, create new one
+                    catalog = new RemoteCatalog
+                    {
+                        Version = "1.0",
+                        RepositoryUrl = $"https://github.com/{_repositoryOwner}/{_repositoryName}",
+                        Files = new List<RemoteWarehouseFile>(),
+                        Packages = new List<RemoteModPackage>()
+                    };
+                }
+                
+                // Remove existing package entry with same ID if present
+                catalog.Packages.RemoveAll(p => p.Id == package.Id);
+                
+                // Add new package entry
+                var remotePackage = new RemoteModPackage
+                {
+                    Id = package.Id,
+                    Name = package.Name,
+                    Description = package.Description,
+                    Author = package.Author,
+                    Version = package.Version,
+                    DateAdded = package.DateAdded,
+                    Tags = package.Tags,
+                    FileIds = package.FileIds,
+                    DownloadUrl = $"https://raw.githubusercontent.com/{_repositoryOwner}/{_repositoryName}/{_branch}/packages/{package.Id}.zip"
+                };
+                
+                catalog.Packages.Add(remotePackage);
+                
+                // Ensure all files in the package are in the catalog
+                var packageFiles = _localWarehouse.GetPackageFiles(package.Id);
+                foreach (var file in packageFiles)
+                {
+                    // Check if file already exists in catalog
+                    if (!catalog.Files.Any(f => f.Id == file.Id))
+                    {
+                        var fileName = $"{file.Id}{file.FileExtension}";
+                        var downloadUrl = $"https://raw.githubusercontent.com/{_repositoryOwner}/{_repositoryName}/{_branch}/files/{fileName}";
+                        
+                        var remoteFile = new RemoteWarehouseFile
+                        {
+                            Id = file.Id,
+                            Name = file.Name,
+                            Description = file.Description,
+                            OriginalFileName = file.OriginalFileName,
+                            FileExtension = file.FileExtension,
+                            Category = file.Category,
+                            TargetRelativePath = file.TargetRelativePath,
+                            FileSizeBytes = file.FileSizeBytes,
+                            DateAdded = file.DateAdded,
+                            Tags = file.Tags,
+                            Author = file.Author,
+                            Version = file.Version,
+                            DownloadUrl = downloadUrl,
+                            ModPackageId = package.Id
+                        };
+                        
+                        catalog.Files.Add(remoteFile);
+                    }
+                    else
+                    {
+                        // Update ModPackageId for existing files
+                        var existingFile = catalog.Files.First(f => f.Id == file.Id);
+                        existingFile.ModPackageId = package.Id;
+                    }
+                }
+                
+                // Upload updated catalog
+                var catalogJsonContent = JsonConvert.SerializeObject(catalog, Formatting.Indented);
+                var catalogBase64 = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(catalogJsonContent));
+                
+                var uploadCatalogUrl = $"https://api.github.com/repos/{_repositoryOwner}/{_repositoryName}/contents/catalog.json";
+                var uploadCatalogRequest = new HttpRequestMessage(HttpMethod.Put, uploadCatalogUrl);
+                uploadCatalogRequest.Headers.Add("Authorization", $"Bearer {githubToken}");
+                uploadCatalogRequest.Headers.Add("Accept", "application/vnd.github+json");
+                
+                var catalogPayload = new
+                {
+                    message = $"Upload package: {package.Name}",
+                    content = catalogBase64,
+                    branch = _branch,
+                    sha = existingCatalogSha
+                };
+                
+                uploadCatalogRequest.Content = new StringContent(
+                    JsonConvert.SerializeObject(catalogPayload),
+                    System.Text.Encoding.UTF8,
+                    "application/json");
+                
+                var uploadCatalogResponse = await _httpClient.SendAsync(uploadCatalogRequest);
+                
+                if (!uploadCatalogResponse.IsSuccessStatusCode)
+                {
+                    var errorContent = await uploadCatalogResponse.Content.ReadAsStringAsync();
+                    throw new InvalidOperationException($"Failed to update catalog: {uploadCatalogResponse.StatusCode} - {errorContent}");
+                }
+                
+                DownloadProgress?.Invoke(this, "Catalog updated successfully with package");
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"Failed to update catalog: {ex.Message}", ex);
+            }
+        }
+        
+        /// <summary>
         /// Get repository information
         /// </summary>
         public (string owner, string repo, string branch) GetRepositoryInfo()

@@ -11,7 +11,7 @@ namespace XvTHydrospanner.Views
     public partial class RemoteModsPage : Page
     {
         private readonly RemoteWarehouseManager _remoteWarehouse;
-        private List<RemoteWarehouseFile> _allRemoteFiles = new();
+        private List<RemoteModPackage> _allRemotePackages = new();
         
         public RemoteModsPage(RemoteWarehouseManager remoteWarehouse)
         {
@@ -20,18 +20,9 @@ namespace XvTHydrospanner.Views
             
             // Subscribe to events
             _remoteWarehouse.DownloadProgress += OnDownloadProgress;
-            _remoteWarehouse.FileDownloaded += OnFileDownloaded;
+            _remoteWarehouse.PackageDownloaded += OnPackageDownloaded;
             
-            InitializeCategoryFilter();
             _ = LoadRemoteCatalogAsync();
-        }
-        
-        private void InitializeCategoryFilter()
-        {
-            var categories = new List<string> { "All Categories" };
-            categories.AddRange(Enum.GetNames(typeof(ModCategory)));
-            CategoryFilter.ItemsSource = categories;
-            CategoryFilter.SelectedIndex = 0;
         }
         
         private async System.Threading.Tasks.Task LoadRemoteCatalogAsync()
@@ -44,10 +35,10 @@ namespace XvTHydrospanner.Views
                 var catalog = await _remoteWarehouse.LoadRemoteCatalogAsync();
                 
                 RepositoryText.Text = catalog.RepositoryUrl;
-                _allRemoteFiles = catalog.Files;
+                _allRemotePackages = catalog.Packages;
                 
-                UpdateFilesList();
-                StatusText.Text = $"Loaded {_allRemoteFiles.Count} files from remote catalog";
+                UpdatePackagesList();
+                StatusText.Text = $"Loaded {_allRemotePackages.Count} packages from remote catalog";
             }
             catch (Exception ex)
             {
@@ -61,58 +52,46 @@ namespace XvTHydrospanner.Views
             }
         }
         
-        private void UpdateFilesList()
+        private void UpdatePackagesList()
         {
             var searchTerm = SearchBox.Text.ToLower();
-            var categoryFilter = CategoryFilter.SelectedItem as string;
             
-            var filteredFiles = _allRemoteFiles.AsEnumerable();
+            var filteredPackages = _allRemotePackages.AsEnumerable();
             
             // Apply search filter
             if (!string.IsNullOrWhiteSpace(searchTerm))
             {
-                filteredFiles = filteredFiles.Where(f =>
-                    f.Name.ToLower().Contains(searchTerm) ||
-                    f.Description.ToLower().Contains(searchTerm) ||
-                    (f.Author?.ToLower().Contains(searchTerm) ?? false));
+                filteredPackages = filteredPackages.Where(p =>
+                    p.Name.ToLower().Contains(searchTerm) ||
+                    p.Description.ToLower().Contains(searchTerm) ||
+                    (p.Author?.ToLower().Contains(searchTerm) ?? false));
             }
             
-            // Apply category filter
-            if (categoryFilter != "All Categories" && Enum.TryParse<ModCategory>(categoryFilter, out var category))
-            {
-                filteredFiles = filteredFiles.Where(f => f.Category == category);
-            }
-            
-            RemoteFilesGrid.ItemsSource = filteredFiles.ToList();
+            RemotePackagesGrid.ItemsSource = filteredPackages.ToList();
         }
         
         private void SearchBox_TextChanged(object sender, TextChangedEventArgs e)
         {
-            UpdateFilesList();
-        }
-        
-        private void CategoryFilter_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            UpdateFilesList();
+            UpdatePackagesList();
         }
         
         private async void DownloadButton_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is Button button && button.Tag is RemoteWarehouseFile remoteFile)
+            if (sender is Button button && button.Tag is RemoteModPackage remotePackage)
             {
                 try
                 {
                     button.IsEnabled = false;
-                    StatusText.Text = $"Downloading {remoteFile.Name}...";
+                    StatusText.Text = $"Downloading package {remotePackage.Name}...";
                     
-                    await _remoteWarehouse.DownloadFileAsync(remoteFile);
+                    await _remoteWarehouse.DownloadPackageAsync(remotePackage);
                     
-                    UpdateFilesList();
-                    StatusText.Text = $"Successfully downloaded {remoteFile.Name}";
+                    UpdatePackagesList();
+                    StatusText.Text = $"Successfully downloaded package {remotePackage.Name}";
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show($"Failed to download file: {ex.Message}", "Error",
+                    MessageBox.Show($"Failed to download package: {ex.Message}", "Error",
                         MessageBoxButton.OK, MessageBoxImage.Error);
                     StatusText.Text = "Download failed";
                     button.IsEnabled = true;
@@ -122,17 +101,17 @@ namespace XvTHydrospanner.Views
         
         private async void DownloadAllButton_Click(object sender, RoutedEventArgs e)
         {
-            var availableFiles = _remoteWarehouse.GetAvailableFiles();
+            var availablePackages = _remoteWarehouse.GetAvailablePackages();
             
-            if (availableFiles.Count == 0)
+            if (availablePackages.Count == 0)
             {
-                MessageBox.Show("No new files available to download.", "Info",
+                MessageBox.Show("No new packages available to download.", "Info",
                     MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
             
             var result = MessageBox.Show(
-                $"Download {availableFiles.Count} available file(s)?",
+                $"Download {availablePackages.Count} available package(s)?",
                 "Confirm Download",
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Question);
@@ -146,11 +125,11 @@ namespace XvTHydrospanner.Views
                 var successCount = 0;
                 var failCount = 0;
                 
-                foreach (var file in availableFiles)
+                foreach (var package in availablePackages)
                 {
                     try
                     {
-                        await _remoteWarehouse.DownloadFileAsync(file);
+                        await _remoteWarehouse.DownloadPackageAsync(package);
                         successCount++;
                     }
                     catch
@@ -159,10 +138,10 @@ namespace XvTHydrospanner.Views
                     }
                 }
                 
-                UpdateFilesList();
-                MessageBox.Show($"Download complete:\n{successCount} succeeded\n{failCount} failed",
+                UpdatePackagesList();
+                MessageBox.Show($"Download complete:\n{successCount} packages succeeded\n{failCount} packages failed",
                     "Download Complete", MessageBoxButton.OK, MessageBoxImage.Information);
-                StatusText.Text = $"Downloaded {successCount} files";
+                StatusText.Text = $"Downloaded {successCount} packages";
             }
             catch (Exception ex)
             {
@@ -180,13 +159,6 @@ namespace XvTHydrospanner.Views
             await LoadRemoteCatalogAsync();
         }
         
-        private void ViewPackagesButton_Click(object sender, RoutedEventArgs e)
-        {
-            // TODO: Navigate to packages view
-            MessageBox.Show("Package view coming soon!", "Info", 
-                MessageBoxButton.OK, MessageBoxImage.Information);
-        }
-        
         private void OnDownloadProgress(object? sender, string message)
         {
             Dispatcher.Invoke(() =>
@@ -195,12 +167,12 @@ namespace XvTHydrospanner.Views
             });
         }
         
-        private void OnFileDownloaded(object? sender, RemoteWarehouseFile file)
+        private void OnPackageDownloaded(object? sender, RemoteModPackage package)
         {
             Dispatcher.Invoke(() =>
             {
                 _remoteWarehouse.RefreshDownloadStatus();
-                UpdateFilesList();
+                UpdatePackagesList();
             });
         }
     }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using Microsoft.Win32;
@@ -32,29 +33,16 @@ namespace XvTHydrospanner.Views
         
         private void LoadFiles()
         {
-            var files = _warehouseManager.GetAllFiles();
             var packages = _warehouseManager.GetAllPackages();
-            
-            var viewModels = files.Select(file =>
-            {
-                string? modPackageName = null;
-                if (file.ModPackageId != null)
-                {
-                    var package = packages.FirstOrDefault(p => p.Id == file.ModPackageId);
-                    modPackageName = package?.Name;
-                }
-                return WarehouseFileViewModel.FromWarehouseFile(file, modPackageName);
-            }).ToList();
-            
-            WarehouseDataGrid.ItemsSource = viewModels;
+            WarehouseDataGrid.ItemsSource = packages;
         }
         
-        private async void AddFileButton_Click(object sender, RoutedEventArgs e)
+        private async void AddPackageButton_Click(object sender, RoutedEventArgs e)
         {
             var openFileDialog = new OpenFileDialog
             {
-                Title = "Select file or archive to add to warehouse",
-                Filter = "All Files (*.*)|*.*|Archives (*.zip;*.rar;*.7z)|*.zip;*.rar;*.7z|Mission Files (*.TIE)|*.TIE|List Files (*.LST)|*.LST",
+                Title = "Select mod archive to import",
+                Filter = "Archives (*.zip;*.rar;*.7z)|*.zip;*.rar;*.7z|All Files (*.*)|*.*",
                 Multiselect = false
             };
             
@@ -107,54 +95,32 @@ namespace XvTHydrospanner.Views
                 }
                 else
                 {
-                    // Single file
-                    var dialog = new AddWarehouseFileDialog(filePath);
-                    if (dialog.ShowDialog() == true)
-                    {
-                        try
-                        {
-                            await _warehouseManager.AddFileAsync(
-                                filePath,
-                                dialog.FileName,
-                                dialog.FileDescription,
-                                dialog.FileCategory,
-                                dialog.TargetPath,
-                                dialog.Author,
-                                dialog.Version,
-                                dialog.Tags
-                            );
-                            LoadFiles();
-                            MessageBox.Show("File added to warehouse successfully.", "Success", 
-                                MessageBoxButton.OK, MessageBoxImage.Information);
-                        }
-                        catch (Exception ex)
-                        {
-                            MessageBox.Show($"Error adding file: {ex.Message}", "Error", 
-                                MessageBoxButton.OK, MessageBoxImage.Error);
-                        }
-                    }
+                    MessageBox.Show("Selected file is not a supported archive format.\n\nSupported formats: ZIP, RAR, 7z", 
+                        "Invalid File", MessageBoxButton.OK, MessageBoxImage.Warning);
                 }
             }
         }
         
-        private async void DeleteFileButton_Click(object sender, RoutedEventArgs e)
+        private async void DeletePackageButton_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is Button button && button.Tag is WarehouseFileViewModel fileViewModel)
+            if (sender is Button button && button.Tag is ModPackage package)
             {
                 var result = MessageBox.Show(
-                    $"Delete '{fileViewModel.Name}' from warehouse?",
+                    $"Delete mod package '{package.Name}' and all its files from warehouse?\n\nThis will remove {package.FileIds.Count} file(s).",
                     "Confirm Delete", MessageBoxButton.YesNo, MessageBoxImage.Warning);
                 
                 if (result == MessageBoxResult.Yes)
                 {
                     try
                     {
-                        await _warehouseManager.RemoveFileAsync(fileViewModel.Id);
+                        await _warehouseManager.RemovePackageAsync(package.Id, removeFiles: true);
                         LoadFiles();
+                        MessageBox.Show($"Package '{package.Name}' deleted successfully.", "Success",
+                            MessageBoxButton.OK, MessageBoxImage.Information);
                     }
                     catch (Exception ex)
                     {
-                        MessageBox.Show($"Error deleting file: {ex.Message}", "Error", 
+                        MessageBox.Show($"Error deleting package: {ex.Message}", "Error", 
                             MessageBoxButton.OK, MessageBoxImage.Error);
                     }
                 }
@@ -170,21 +136,29 @@ namespace XvTHydrospanner.Views
             }
             else
             {
-                var files = _warehouseManager.Search(searchTerm);
-                var packages = _warehouseManager.GetAllPackages();
+                var allPackages = _warehouseManager.GetAllPackages();
+                var filtered = allPackages.Where(p =>
+                    p.Name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                    p.Description.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                    (p.Author != null && p.Author.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+                ).ToList();
                 
-                var viewModels = files.Select(file =>
-                {
-                    string? modPackageName = null;
-                    if (file.ModPackageId != null)
-                    {
-                        var package = packages.FirstOrDefault(p => p.Id == file.ModPackageId);
-                        modPackageName = package?.Name;
-                    }
-                    return WarehouseFileViewModel.FromWarehouseFile(file, modPackageName);
-                }).ToList();
-                
-                WarehouseDataGrid.ItemsSource = viewModels;
+                WarehouseDataGrid.ItemsSource = filtered;
+            }
+        }
+        
+        private async void UploadPackageButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_remoteWarehouseManager == null || _configManager == null)
+            {
+                MessageBox.Show("Remote warehouse manager not initialized.", "Error",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+            
+            if (sender is Button button && button.Tag is ModPackage package)
+            {
+                await UploadPackage(package);
             }
         }
         
@@ -197,7 +171,21 @@ namespace XvTHydrospanner.Views
                 return;
             }
             
-            var config = _configManager.GetConfig();
+            // Get selected package
+            if (WarehouseDataGrid.SelectedItem is ModPackage selectedPackage)
+            {
+                await UploadPackage(selectedPackage);
+            }
+            else
+            {
+                MessageBox.Show("Please select a mod package to upload.", "No Selection",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+        }
+        
+        private async Task UploadPackage(ModPackage package)
+        {
+            var config = _configManager!.GetConfig();
             
             if (string.IsNullOrWhiteSpace(config.GitHubToken))
             {
@@ -224,52 +212,37 @@ namespace XvTHydrospanner.Views
                 }
             }
             
-            // Get selected file
-            if (WarehouseDataGrid.SelectedItem is WarehouseFileViewModel selectedViewModel)
+            var (owner, repo, branch) = _remoteWarehouseManager!.GetRepositoryInfo();
+            var confirmResult = MessageBox.Show(
+                $"Upload mod package '{package.Name}' to remote repository?\n\n" +
+                $"Repository: {owner}/{repo}\nBranch: {branch}\n" +
+                $"Files to upload: {package.FileIds.Count}",
+                "Confirm Upload",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+            
+            if (confirmResult != MessageBoxResult.Yes)
+                return;
+            
+            try
             {
-                var selectedFile = _warehouseManager.GetFile(selectedViewModel.Id);
-                if (selectedFile == null)
-                {
-                    MessageBox.Show("Selected file not found.", "Error",
-                        MessageBoxButton.OK, MessageBoxImage.Error);
-                    return;
-                }
+                UploadToRemoteButton.IsEnabled = false;
+                await _remoteWarehouseManager.UploadPackageAsync(package, config.GitHubToken);
                 
-                var (owner, repo, branch) = _remoteWarehouseManager.GetRepositoryInfo();
-                var confirmResult = MessageBox.Show(
-                    $"Upload '{selectedFile.Name}' to remote repository?\n\nRepository: {owner}/{repo}\nBranch: {branch}",
-                    "Confirm Upload",
-                    MessageBoxButton.YesNo,
-                    MessageBoxImage.Question);
-                
-                if (confirmResult != MessageBoxResult.Yes)
-                    return;
-                
-                try
-                {
-                    UploadToRemoteButton.IsEnabled = false;
-                    await _remoteWarehouseManager.UploadFileAsync(selectedFile, config.GitHubToken);
-                    
-                    MessageBox.Show($"Successfully uploaded '{selectedFile.Name}' to remote repository!",
-                        "Upload Complete", MessageBoxButton.OK, MessageBoxImage.Information);
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show($"Failed to upload file: {ex.Message}\n\nMake sure:\n" +
-                        "1. Your GitHub token has 'repo' permissions\n" +
-                        "2. You have write access to the repository\n" +
-                        "3. The repository exists",
-                        "Upload Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                }
-                finally
-                {
-                    UploadToRemoteButton.IsEnabled = true;
-                }
+                MessageBox.Show($"Successfully uploaded mod package '{package.Name}' to remote repository!",
+                    "Upload Complete", MessageBoxButton.OK, MessageBoxImage.Information);
             }
-            else
+            catch (Exception ex)
             {
-                MessageBox.Show("Please select a file to upload.", "No Selection",
-                    MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show($"Failed to upload package: {ex.Message}\n\nMake sure:\n" +
+                    "1. Your GitHub token has 'repo' permissions\n" +
+                    "2. You have write access to the repository\n" +
+                    "3. The repository exists",
+                    "Upload Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                UploadToRemoteButton.IsEnabled = true;
             }
         }
     }
