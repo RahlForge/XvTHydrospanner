@@ -285,5 +285,46 @@ namespace XvTHydrospanner.Views
             PackageDetailsPanel.Visibility = Visibility.Collapsed;
             PackageFilesGrid.ItemsSource = null;
         }
+        
+        private async void ContextMenu_Upload_Click(object sender, RoutedEventArgs e)
+        {
+            if (WarehouseDataGrid.SelectedItem is ModPackage package)
+            {
+                if (_remoteWarehouseManager == null || _configManager == null)
+                {
+                    MessageBox.Show("Remote warehouse manager not initialized.", "Error",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+                
+                await UploadPackage(package);
+            }
+        }
+        
+        private async void ContextMenu_Delete_Click(object sender, RoutedEventArgs e)
+        {
+            if (WarehouseDataGrid.SelectedItem is ModPackage package)
+            {
+                var result = MessageBox.Show(
+                    $"Delete mod package '{package.Name}' and all its files from warehouse?\n\nThis will remove {package.FileIds.Count} file(s).",
+                    "Confirm Delete", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                
+                if (result == MessageBoxResult.Yes)
+                {
+                    try
+                    {
+                        await _warehouseManager.RemovePackageAsync(package.Id, removeFiles: true);
+                        LoadFiles();
+                        MessageBox.Show($"Package '{package.Name}' deleted successfully.", "Success",
+                            MessageBoxButton.OK, MessageBoxImage.Information);
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"Error deleting package: {ex.Message}", "Error", 
+                            MessageBoxButton.OK, MessageBoxImage.Error);
+                    }
+                }
+            }
+        }
     }
 }

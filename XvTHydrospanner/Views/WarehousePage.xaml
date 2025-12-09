@@ -41,15 +41,27 @@
                       GridLinesVisibility="Horizontal" HeadersVisibility="Column"
                       RowBackground="#252526" AlternatingRowBackground="#2D2D30"
                       CanUserAddRows="False" IsReadOnly="True" CanUserSortColumns="True"
-                      SelectionChanged="WarehouseDataGrid_SelectionChanged">
+                      SelectionChanged="WarehouseDataGrid_SelectionChanged"
+                      HorizontalScrollBarVisibility="Auto">
+                <DataGrid.ColumnHeaderStyle>
+                    <Style TargetType="DataGridColumnHeader">
+                        <Setter Property="Foreground" Value="Black"/>
+                    </Style>
+                </DataGrid.ColumnHeaderStyle>
+                <DataGrid.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="Upload to Remote" Click="ContextMenu_Upload_Click"/>
+                        <MenuItem Header="Delete Package" Click="ContextMenu_Delete_Click"/>
+                    </ContextMenu>
+                </DataGrid.ContextMenu>
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="Package Name" Binding="{Binding Name}" Width="200"/>
-                    <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="*"/>
-                    <DataGridTextColumn Header="Author" Binding="{Binding Author}" Width="120"/>
-                    <DataGridTextColumn Header="Version" Binding="{Binding Version}" Width="80"/>
-                    <DataGridTextColumn Header="Files" Binding="{Binding FileIds.Count}" Width="60"/>
-                    <DataGridTextColumn Header="Date Added" Binding="{Binding DateAdded, StringFormat={}{0:yyyy-MM-dd}}" Width="100"/>
-                    <DataGridTemplateColumn Header="Actions" Width="180">
+                    <DataGridTextColumn Header="Package Name" Binding="{Binding Name}" Width="200" MinWidth="200"/>
+                    <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="300" MinWidth="200"/>
+                    <DataGridTextColumn Header="Author" Binding="{Binding Author}" Width="120" MinWidth="120"/>
+                    <DataGridTextColumn Header="Version" Binding="{Binding Version}" Width="80" MinWidth="80"/>
+                    <DataGridTextColumn Header="Files" Binding="{Binding FileIds.Count}" Width="60" MinWidth="60"/>
+                    <DataGridTextColumn Header="Date Added" Binding="{Binding DateAdded, StringFormat={}{0:yyyy-MM-dd}}" Width="100" MinWidth="100"/>
+                    <DataGridTemplateColumn Header="Actions" Width="180" MinWidth="180">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <StackPanel Orientation="Horizontal">
