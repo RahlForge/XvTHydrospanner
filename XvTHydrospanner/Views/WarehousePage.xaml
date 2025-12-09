@@ -27,32 +27,125 @@
             <TextBlock Text="🔍" FontSize="16" VerticalAlignment="Center" Margin="10,0,0,0" Foreground="#666666"/>
         </StackPanel>
         
-        <!-- Packages Grid -->
-        <DataGrid x:Name="WarehouseDataGrid" Grid.Row="2" AutoGenerateColumns="False" 
-                  Background="#252526" Foreground="#CCCCCC" BorderBrush="#3F3F46" 
-                  GridLinesVisibility="Horizontal" HeadersVisibility="Column"
-                  RowBackground="#252526" AlternatingRowBackground="#2D2D30"
-                  CanUserAddRows="False" IsReadOnly="True" CanUserSortColumns="True">
-            <DataGrid.Columns>
-                <DataGridTextColumn Header="Package Name" Binding="{Binding Name}" Width="200"/>
-                <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="*"/>
-                <DataGridTextColumn Header="Author" Binding="{Binding Author}" Width="120"/>
-                <DataGridTextColumn Header="Version" Binding="{Binding Version}" Width="80"/>
-                <DataGridTextColumn Header="Files" Binding="{Binding FileIds.Count}" Width="60"/>
-                <DataGridTextColumn Header="Date Added" Binding="{Binding DateAdded, StringFormat={}{0:yyyy-MM-dd}}" Width="100"/>
-                <DataGridTemplateColumn Header="Actions" Width="180">
-                    <DataGridTemplateColumn.CellTemplate>
-                        <DataTemplate>
-                            <StackPanel Orientation="Horizontal">
-                                <Button Content="Upload" Click="UploadPackageButton_Click" 
-                                        Tag="{Binding}" Height="25" Width="70" Margin="0,0,5,0"/>
-                                <Button Content="Delete" Click="DeletePackageButton_Click" 
-                                        Tag="{Binding}" Height="25" Width="70"/>
-                            </StackPanel>
-                        </DataTemplate>
-                    </DataGridTemplateColumn.CellTemplate>
-                </DataGridTemplateColumn>
-            </DataGrid.Columns>
-        </DataGrid>
+        <!-- Split View: Packages Grid + Details Panel -->
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="400"/>
+            </Grid.ColumnDefinitions>
+            
+            <!-- Packages Grid -->
+            <DataGrid x:Name="WarehouseDataGrid" Grid.Column="0" AutoGenerateColumns="False" 
+                      Background="#252526" Foreground="#CCCCCC" BorderBrush="#3F3F46" 
+                      GridLinesVisibility="Horizontal" HeadersVisibility="Column"
+                      RowBackground="#252526" AlternatingRowBackground="#2D2D30"
+                      CanUserAddRows="False" IsReadOnly="True" CanUserSortColumns="True"
+                      SelectionChanged="WarehouseDataGrid_SelectionChanged">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Package Name" Binding="{Binding Name}" Width="200"/>
+                    <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="*"/>
+                    <DataGridTextColumn Header="Author" Binding="{Binding Author}" Width="120"/>
+                    <DataGridTextColumn Header="Version" Binding="{Binding Version}" Width="80"/>
+                    <DataGridTextColumn Header="Files" Binding="{Binding FileIds.Count}" Width="60"/>
+                    <DataGridTextColumn Header="Date Added" Binding="{Binding DateAdded, StringFormat={}{0:yyyy-MM-dd}}" Width="100"/>
+                    <DataGridTemplateColumn Header="Actions" Width="180">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal">
+                                    <Button Content="Upload" Click="UploadPackageButton_Click" 
+                                            Tag="{Binding}" Height="25" Width="70" Margin="0,0,5,0"/>
+                                    <Button Content="Delete" Click="DeletePackageButton_Click" 
+                                            Tag="{Binding}" Height="25" Width="70"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                </DataGrid.Columns>
+            </DataGrid>
+            
+            <!-- Splitter -->
+            <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Center" 
+                          Background="#3F3F46" VerticalAlignment="Stretch"
+                          Visibility="{Binding ElementName=PackageDetailsPanel, Path=Visibility}"/>
+            
+            <!-- Package Details Panel -->
+            <Border Grid.Column="2" x:Name="PackageDetailsPanel" 
+                    Background="#252526" BorderBrush="#3F3F46" BorderThickness="1,0,0,0"
+                    Padding="15" Visibility="Collapsed">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <!-- Package Info Header -->
+                        <TextBlock Text="Package Details" FontSize="18" FontWeight="Bold" 
+                                   Foreground="White" Margin="0,0,0,15"/>
+                        
+                        <!-- Package Name -->
+                        <TextBlock Text="Name:" FontSize="11" Foreground="#888888" Margin="0,0,0,2"/>
+                        <TextBlock x:Name="DetailPackageName" Text="" FontSize="14" FontWeight="SemiBold"
+                                   Foreground="White" Margin="0,0,0,10" TextWrapping="Wrap"/>
+                        
+                        <!-- Description -->
+                        <TextBlock Text="Description:" FontSize="11" Foreground="#888888" Margin="0,0,0,2"/>
+                        <TextBlock x:Name="DetailDescription" Text="" FontSize="12" 
+                                   Foreground="#CCCCCC" Margin="0,0,0,10" TextWrapping="Wrap"/>
+                        
+                        <!-- Author -->
+                        <TextBlock Text="Author:" FontSize="11" Foreground="#888888" Margin="0,0,0,2"/>
+                        <TextBlock x:Name="DetailAuthor" Text="Unknown" FontSize="12" 
+                                   Foreground="#CCCCCC" Margin="0,0,0,10"/>
+                        
+                        <!-- Version -->
+                        <TextBlock Text="Version:" FontSize="11" Foreground="#888888" Margin="0,0,0,2"/>
+                        <TextBlock x:Name="DetailVersion" Text="N/A" FontSize="12" 
+                                   Foreground="#CCCCCC" Margin="0,0,0,10"/>
+                        
+                        <!-- Date Added -->
+                        <TextBlock Text="Date Added:" FontSize="11" Foreground="#888888" Margin="0,0,0,2"/>
+                        <TextBlock x:Name="DetailDateAdded" Text="" FontSize="12" 
+                                   Foreground="#CCCCCC" Margin="0,0,0,15"/>
+                        
+                        <!-- Files Section -->
+                        <TextBlock Text="Files in Package" FontSize="16" FontWeight="Bold" 
+                                   Foreground="White" Margin="0,10,0,10"/>
+                        
+                        <DataGrid x:Name="PackageFilesGrid" AutoGenerateColumns="False"
+                                  Background="#2D2D30" Foreground="#CCCCCC" BorderBrush="#3F3F46"
+                                  GridLinesVisibility="Horizontal" HeadersVisibility="Column"
+                                  RowBackground="#2D2D30" AlternatingRowBackground="#333333"
+                                  CanUserAddRows="False" IsReadOnly="True" MaxHeight="400">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="File Name" Binding="{Binding Name}" Width="150"/>
+                                <DataGridTextColumn Header="Category" Binding="{Binding Category}" Width="80"/>
+                                <DataGridTextColumn Header="Target Path" Binding="{Binding TargetRelativePath}" Width="*"/>
+                            </DataGrid.Columns>
+                            
+                            <DataGrid.RowStyle>
+                                <Style TargetType="DataGridRow">
+                                    <Setter Property="Background" Value="#2D2D30"/>
+                                    <Setter Property="Foreground" Value="#CCCCCC"/>
+                                    <Style.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter Property="Background" Value="#3E3E42"/>
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </DataGrid.RowStyle>
+                            
+                            <DataGrid.ColumnHeaderStyle>
+                                <Style TargetType="DataGridColumnHeader">
+                                    <Setter Property="Background" Value="#3F3F46"/>
+                                    <Setter Property="Foreground" Value="White"/>
+                                    <Setter Property="FontWeight" Value="Bold"/>
+                                    <Setter Property="FontSize" Value="11"/>
+                                    <Setter Property="Padding" Value="8,5"/>
+                                    <Setter Property="BorderBrush" Value="#555555"/>
+                                    <Setter Property="BorderThickness" Value="0,0,1,1"/>
+                                </Style>
+                            </DataGrid.ColumnHeaderStyle>
+                        </DataGrid>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+        </Grid>
     </Grid>
 </Page>

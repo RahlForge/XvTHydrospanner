@@ -245,5 +245,45 @@ namespace XvTHydrospanner.Views
                 UploadToRemoteButton.IsEnabled = true;
             }
         }
+        
+        private void WarehouseDataGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (WarehouseDataGrid.SelectedItem is ModPackage selectedPackage)
+            {
+                ShowPackageDetails(selectedPackage);
+            }
+            else
+            {
+                HidePackageDetails();
+            }
+        }
+        
+        private void ShowPackageDetails(ModPackage package)
+        {
+            PackageDetailsPanel.Visibility = Visibility.Visible;
+            
+            // Populate package info
+            DetailPackageName.Text = package.Name;
+            DetailDescription.Text = string.IsNullOrWhiteSpace(package.Description) 
+                ? "No description available" 
+                : package.Description;
+            DetailAuthor.Text = string.IsNullOrWhiteSpace(package.Author) 
+                ? "Unknown" 
+                : package.Author;
+            DetailVersion.Text = string.IsNullOrWhiteSpace(package.Version) 
+                ? "N/A" 
+                : package.Version;
+            DetailDateAdded.Text = package.DateAdded.ToString("MMMM dd, yyyy");
+            
+            // Load and display package files
+            var packageFiles = _warehouseManager.GetPackageFiles(package.Id);
+            PackageFilesGrid.ItemsSource = packageFiles;
+        }
+        
+        private void HidePackageDetails()
+        {
+            PackageDetailsPanel.Visibility = Visibility.Collapsed;
+            PackageFilesGrid.ItemsSource = null;
+        }
     }
 }
