@@ -61,14 +61,51 @@
                     <DataGridTextColumn Header="Version" Binding="{Binding Version}" Width="80" MinWidth="80"/>
                     <DataGridTextColumn Header="Files" Binding="{Binding FileIds.Count}" Width="60" MinWidth="60"/>
                     <DataGridTextColumn Header="Date Added" Binding="{Binding DateAdded, StringFormat={}{0:yyyy-MM-dd}}" Width="100" MinWidth="100"/>
-                    <DataGridTemplateColumn Header="Actions" Width="180" MinWidth="180">
+                    <DataGridTemplateColumn Header="Actions" Width="80" MinWidth="80">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
-                                <StackPanel Orientation="Horizontal">
-                                    <Button Content="Upload" Click="UploadPackageButton_Click" 
-                                            Tag="{Binding}" Height="25" Width="70" Margin="0,0,5,0"/>
-                                    <Button Content="Delete" Click="DeletePackageButton_Click" 
-                                            Tag="{Binding}" Height="25" Width="70"/>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                    <Button Click="UploadPackageButton_Click" 
+                                            Tag="{Binding}" 
+                                            Height="28" Width="28" 
+                                            Margin="0,0,8,0"
+                                            Background="Transparent"
+                                            BorderBrush="Transparent"
+                                            ToolTip="Upload to Remote"
+                                            Cursor="Hand">
+                                        <TextBlock Text="⬆" FontSize="18" Foreground="#4CAF50"/>
+                                        <Button.Style>
+                                            <Style TargetType="Button">
+                                                <Setter Property="Background" Value="Transparent"/>
+                                                <Setter Property="BorderBrush" Value="Transparent"/>
+                                                <Style.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter Property="Background" Value="#333333"/>
+                                                    </Trigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                    </Button>
+                                    <Button Click="DeletePackageButton_Click" 
+                                            Tag="{Binding}" 
+                                            Height="28" Width="28"
+                                            Background="Transparent"
+                                            BorderBrush="Transparent"
+                                            ToolTip="Delete Package"
+                                            Cursor="Hand">
+                                        <TextBlock Text="🗑" FontSize="16" Foreground="#F44336"/>
+                                        <Button.Style>
+                                            <Style TargetType="Button">
+                                                <Setter Property="Background" Value="Transparent"/>
+                                                <Setter Property="BorderBrush" Value="Transparent"/>
+                                                <Style.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter Property="Background" Value="#333333"/>
+                                                    </Trigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                    </Button>
                                 </StackPanel>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
