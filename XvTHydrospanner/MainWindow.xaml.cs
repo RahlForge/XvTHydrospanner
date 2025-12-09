@@ -191,7 +191,7 @@ namespace XvTHydrospanner
         {
             if (_warehouseManager == null) return;
             
-            ContentFrame.Navigate(new WarehousePage(_warehouseManager));
+            ContentFrame.Navigate(new WarehousePage(_warehouseManager, _remoteWarehouseManager, _configManager));
             StatusText.Text = "Mod Warehouse";
         }
         

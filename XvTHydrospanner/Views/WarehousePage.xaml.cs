@@ -12,12 +12,22 @@ namespace XvTHydrospanner.Views
     public partial class WarehousePage
     {
         private readonly WarehouseManager _warehouseManager;
+        private readonly RemoteWarehouseManager? _remoteWarehouseManager;
+        private readonly ConfigurationManager? _configManager;
         
-        public WarehousePage(WarehouseManager warehouseManager)
+        public WarehousePage(WarehouseManager warehouseManager, RemoteWarehouseManager? remoteWarehouseManager = null, ConfigurationManager? configManager = null)
         {
             InitializeComponent();
             _warehouseManager = warehouseManager;
+            _remoteWarehouseManager = remoteWarehouseManager;
+            _configManager = configManager;
             LoadFiles();
+            
+            // Show/hide upload button based on availability
+            if (_remoteWarehouseManager == null || _configManager == null)
+            {
+                UploadToRemoteButton.Visibility = Visibility.Collapsed;
+            }
         }
         
         private void LoadFiles()
@@ -175,6 +185,91 @@ namespace XvTHydrospanner.Views
                 }).ToList();
                 
                 WarehouseDataGrid.ItemsSource = viewModels;
+            }
+        }
+        
+        private async void UploadToRemoteButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_remoteWarehouseManager == null || _configManager == null)
+            {
+                MessageBox.Show("Remote warehouse manager not initialized.", "Error",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+            
+            var config = _configManager.GetConfig();
+            
+            if (string.IsNullOrWhiteSpace(config.GitHubToken))
+            {
+                var result = MessageBox.Show(
+                    "GitHub Personal Access Token is required to upload mods.\n\nWould you like to configure it now in Settings?",
+                    "Token Required",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Information);
+                
+                if (result == MessageBoxResult.Yes)
+                {
+                    var settingsWindow = new SettingsWindow(_configManager);
+                    settingsWindow.ShowDialog();
+                    config = _configManager.GetConfig();
+                    
+                    if (string.IsNullOrWhiteSpace(config.GitHubToken))
+                    {
+                        return; // Still no token
+                    }
+                }
+                else
+                {
+                    return;
+                }
+            }
+            
+            // Get selected file
+            if (WarehouseDataGrid.SelectedItem is WarehouseFileViewModel selectedViewModel)
+            {
+                var selectedFile = _warehouseManager.GetFile(selectedViewModel.Id);
+                if (selectedFile == null)
+                {
+                    MessageBox.Show("Selected file not found.", "Error",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+                
+                var (owner, repo, branch) = _remoteWarehouseManager.GetRepositoryInfo();
+                var confirmResult = MessageBox.Show(
+                    $"Upload '{selectedFile.Name}' to remote repository?\n\nRepository: {owner}/{repo}\nBranch: {branch}",
+                    "Confirm Upload",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question);
+                
+                if (confirmResult != MessageBoxResult.Yes)
+                    return;
+                
+                try
+                {
+                    UploadToRemoteButton.IsEnabled = false;
+                    await _remoteWarehouseManager.UploadFileAsync(selectedFile, config.GitHubToken);
+                    
+                    MessageBox.Show($"Successfully uploaded '{selectedFile.Name}' to remote repository!",
+                        "Upload Complete", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Failed to upload file: {ex.Message}\n\nMake sure:\n" +
+                        "1. Your GitHub token has 'repo' permissions\n" +
+                        "2. You have write access to the repository\n" +
+                        "3. The repository exists",
+                        "Upload Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+                finally
+                {
+                    UploadToRemoteButton.IsEnabled = true;
+                }
+            }
+            else
+            {
+                MessageBox.Show("Please select a file to upload.", "No Selection",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
             }
         }
     }

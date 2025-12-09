@@ -20,6 +20,8 @@
         <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,15">
             <Button x:Name="AddFileButton" Content="+ Add File" Height="35" Width="120" 
                     Style="{StaticResource PrimaryButtonStyle}" Click="AddFileButton_Click"/>
+            <Button x:Name="UploadToRemoteButton" Content="⬆ Upload to Remote" Height="35" Width="150" Margin="10,0,0,0"
+                    Click="UploadToRemoteButton_Click"/>
             <TextBox x:Name="SearchBox" Width="250" Height="35" Margin="20,0,0,0" 
                      VerticalContentAlignment="Center" TextChanged="SearchBox_TextChanged"/>
             <TextBlock Text="🔍" FontSize="16" VerticalAlignment="Center" Margin="10,0,0,0" Foreground="#666666"/>

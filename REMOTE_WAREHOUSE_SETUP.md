@@ -112,9 +112,44 @@ By default, the app looks for:
 - **Repository**: XvTHydrospanner-Mods
 - **Branch**: main
 
-You can customize these in the app's configuration (future feature) or create your own fork.
+You can customize these in Settings (⚙ button) > Remote Repository Settings.
 
-## Adding New Mods
+## GitHub Personal Access Token
+
+To upload mods from the app, you need a GitHub Personal Access Token:
+
+1. Go to https://github.com/settings/tokens
+2. Click "Generate new token" → "Generate new token (classic)"
+3. Give it a descriptive name (e.g., "XvT Hydrospanner Upload")
+4. Select scopes:
+   - ✅ `repo` (Full control of private repositories)
+5. Click "Generate token"
+6. Copy the token (you won't see it again!)
+7. In XvT Hydrospanner: Settings → Remote Repository Settings → paste token
+8. Click Save
+
+**Security Note**: The token is stored in your local config.json file. Keep this secure!
+
+## Uploading Mods from the App
+
+The easiest way to add mods to your remote repository:
+
+1. **Import Locally**: Add mod to local warehouse via "Mod Warehouse" page
+2. **Test**: Create a profile and test that the mod applies correctly
+3. **Upload**: 
+   - Go to "Mod Warehouse" page
+   - Select the mod file
+   - Click "⬆ Upload to Remote"
+   - Confirm the upload
+
+The app will:
+- Upload the file to `files/{id}.ext` in your repository
+- Automatically update or create `catalog.json` with the mod entry
+- Preserve all metadata (name, description, version, tags, etc.)
+
+## Adding New Mods Manually
+
+If you prefer manual control:
 
 1. Add the mod file to the appropriate directory (files/ or packages/)
 2. Update catalog.json with the new entry

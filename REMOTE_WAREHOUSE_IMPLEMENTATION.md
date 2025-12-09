@@ -71,21 +71,29 @@ Implemented a remote warehouse feature that allows users to browse and download 
    - Track which mods are already downloaded
    - Disable download button for downloaded items
 
-3. **Search & Filter**
+3. **Upload Management** ✨ NEW
+   - Upload mods from local warehouse to remote repository
+   - Automatic catalog.json creation/update
+   - GitHub authentication via Personal Access Token
+   - Preserves all mod metadata during upload
+
+4. **Search & Filter**
    - Search by name, description, or author
    - Filter by mod category
    - Real-time filtering
 
-4. **Integration**
+5. **Integration**
    - Downloads integrate seamlessly with local warehouse
    - Downloaded mods immediately available for profile use
-   - Progress reporting during downloads
+   - Uploaded mods immediately available to all users
+   - Progress reporting during downloads and uploads
 
-5. **User Experience**
+6. **User Experience**
    - Clean, dark-themed UI matching existing app style
    - Visual indicators for download status
    - Batch download capability
    - Refresh catalog on demand
+   - Upload button in Warehouse page
 
 ## Technical Details
 
@@ -120,14 +128,13 @@ XvTHydrospanner-Mods/
 - Catalog URL: `https://raw.githubusercontent.com/RahlForge/XvTHydrospanner-Mods/main/catalog.json`
 
 ## Future Enhancements (Not Implemented)
-- Settings UI for custom repository configuration
 - Automatic update checking for existing mods
 - Mod rating/review system
-- Upload mods to remote repository from app
 - Authentication for private repositories
 - Download progress bars
 - Retry logic for failed downloads
 - Caching of catalog
+- Batch upload multiple files
 
 ## Build Status
 ✅ Debug Build: Success

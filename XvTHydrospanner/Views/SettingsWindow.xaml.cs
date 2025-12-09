@@ -26,6 +26,7 @@ namespace XvTHydrospanner.Views
             RemoteOwnerTextBox.Text = config.RemoteRepositoryOwner ?? string.Empty;
             RemoteRepoTextBox.Text = config.RemoteRepositoryName ?? string.Empty;
             RemoteBranchTextBox.Text = config.RemoteRepositoryBranch ?? string.Empty;
+            GitHubTokenBox.Password = config.GitHubToken ?? string.Empty;
         }
         
         private void BrowseGamePath_Click(object sender, RoutedEventArgs e)
@@ -72,6 +73,8 @@ namespace XvTHydrospanner.Views
                     ? null : RemoteRepoTextBox.Text;
                 config.RemoteRepositoryBranch = string.IsNullOrWhiteSpace(RemoteBranchTextBox.Text) 
                     ? null : RemoteBranchTextBox.Text;
+                config.GitHubToken = string.IsNullOrWhiteSpace(GitHubTokenBox.Password) 
+                    ? null : GitHubTokenBox.Password;
                 
                 await _configManager.UpdateConfigAsync(config);
                 

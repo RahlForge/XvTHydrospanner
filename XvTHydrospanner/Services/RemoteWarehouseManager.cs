@@ -252,5 +252,199 @@ namespace XvTHydrospanner.Services
                     p.Version == remotePackage.Version);
             }
         }
+        
+        /// <summary>
+        /// Upload a file from local warehouse to remote GitHub repository
+        /// </summary>
+        public async Task UploadFileAsync(WarehouseFile localFile, string githubToken)
+        {
+            if (string.IsNullOrEmpty(githubToken))
+                throw new InvalidOperationException("GitHub token is required for uploading files");
+            
+            if (!File.Exists(localFile.StoragePath))
+                throw new FileNotFoundException("Local file not found", localFile.StoragePath);
+            
+            try
+            {
+                DownloadProgress?.Invoke(this, $"Uploading {localFile.Name}...");
+                
+                // Read file content
+                var fileBytes = await File.ReadAllBytesAsync(localFile.StoragePath);
+                var base64Content = Convert.ToBase64String(fileBytes);
+                
+                // Prepare the path in the repository
+                var fileName = $"{localFile.Id}{localFile.FileExtension}";
+                var repoPath = $"files/{fileName}";
+                
+                // Check if file already exists
+                var checkUrl = $"https://api.github.com/repos/{_repositoryOwner}/{_repositoryName}/contents/{repoPath}?ref={_branch}";
+                var checkRequest = new HttpRequestMessage(HttpMethod.Get, checkUrl);
+                checkRequest.Headers.Add("Authorization", $"Bearer {githubToken}");
+                checkRequest.Headers.Add("Accept", "application/vnd.github+json");
+                
+                var checkResponse = await _httpClient.SendAsync(checkRequest);
+                string? existingSha = null;
+                
+                if (checkResponse.IsSuccessStatusCode)
+                {
+                    var existingContent = await checkResponse.Content.ReadAsStringAsync();
+                    var existingJson = JsonConvert.DeserializeObject<dynamic>(existingContent);
+                    existingSha = existingJson?.sha;
+                }
+                
+                // Upload file via GitHub API
+                var uploadUrl = $"https://api.github.com/repos/{_repositoryOwner}/{_repositoryName}/contents/{repoPath}";
+                var uploadRequest = new HttpRequestMessage(HttpMethod.Put, uploadUrl);
+                uploadRequest.Headers.Add("Authorization", $"Bearer {githubToken}");
+                uploadRequest.Headers.Add("Accept", "application/vnd.github+json");
+                
+                var uploadPayload = new
+                {
+                    message = $"Upload mod: {localFile.Name}",
+                    content = base64Content,
+                    branch = _branch,
+                    sha = existingSha
+                };
+                
+                uploadRequest.Content = new StringContent(
+                    JsonConvert.SerializeObject(uploadPayload),
+                    System.Text.Encoding.UTF8,
+                    "application/json");
+                
+                var uploadResponse = await _httpClient.SendAsync(uploadRequest);
+                
+                if (!uploadResponse.IsSuccessStatusCode)
+                {
+                    var errorContent = await uploadResponse.Content.ReadAsStringAsync();
+                    throw new InvalidOperationException($"Failed to upload file: {uploadResponse.StatusCode} - {errorContent}");
+                }
+                
+                var responseContent = await uploadResponse.Content.ReadAsStringAsync();
+                var responseJson = JsonConvert.DeserializeObject<dynamic>(responseContent);
+                var downloadUrl = $"https://raw.githubusercontent.com/{_repositoryOwner}/{_repositoryName}/{_branch}/{repoPath}";
+                
+                DownloadProgress?.Invoke(this, $"Uploaded {localFile.Name} successfully");
+                
+                // Now update the catalog
+                await UpdateRemoteCatalogWithFileAsync(localFile, downloadUrl, githubToken);
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"Failed to upload file: {ex.Message}", ex);
+            }
+        }
+        
+        /// <summary>
+        /// Update or create remote catalog.json with new file entry
+        /// </summary>
+        private async Task UpdateRemoteCatalogWithFileAsync(WarehouseFile localFile, string downloadUrl, string githubToken)
+        {
+            try
+            {
+                DownloadProgress?.Invoke(this, "Updating remote catalog...");
+                
+                // Try to get existing catalog
+                RemoteCatalog catalog;
+                string? existingCatalogSha = null;
+                
+                var catalogUrl = $"https://api.github.com/repos/{_repositoryOwner}/{_repositoryName}/contents/catalog.json?ref={_branch}";
+                var catalogRequest = new HttpRequestMessage(HttpMethod.Get, catalogUrl);
+                catalogRequest.Headers.Add("Authorization", $"Bearer {githubToken}");
+                catalogRequest.Headers.Add("Accept", "application/vnd.github+json");
+                
+                var catalogResponse = await _httpClient.SendAsync(catalogRequest);
+                
+                if (catalogResponse.IsSuccessStatusCode)
+                {
+                    // Catalog exists, download and update it
+                    var catalogContent = await catalogResponse.Content.ReadAsStringAsync();
+                    var catalogJson = JsonConvert.DeserializeObject<dynamic>(catalogContent);
+                    existingCatalogSha = catalogJson?.sha;
+                    
+                    var base64Content = catalogJson?.content?.ToString().Replace("\n", "");
+                    var decodedContent = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(base64Content));
+                    catalog = JsonConvert.DeserializeObject<RemoteCatalog>(decodedContent) ?? new RemoteCatalog();
+                }
+                else
+                {
+                    // Catalog doesn't exist, create new one from local
+                    catalog = new RemoteCatalog
+                    {
+                        Version = "1.0",
+                        RepositoryUrl = $"https://github.com/{_repositoryOwner}/{_repositoryName}",
+                        Files = new List<RemoteWarehouseFile>(),
+                        Packages = new List<RemoteModPackage>()
+                    };
+                }
+                
+                // Remove existing entry with same ID if present
+                catalog.Files.RemoveAll(f => f.Id == localFile.Id);
+                
+                // Add new file entry
+                var remoteFile = new RemoteWarehouseFile
+                {
+                    Id = localFile.Id,
+                    Name = localFile.Name,
+                    Description = localFile.Description,
+                    OriginalFileName = localFile.OriginalFileName,
+                    FileExtension = localFile.FileExtension,
+                    Category = localFile.Category,
+                    TargetRelativePath = localFile.TargetRelativePath,
+                    FileSizeBytes = localFile.FileSizeBytes,
+                    DateAdded = localFile.DateAdded,
+                    Tags = localFile.Tags,
+                    Author = localFile.Author,
+                    Version = localFile.Version,
+                    DownloadUrl = downloadUrl,
+                    ModPackageId = localFile.ModPackageId
+                };
+                
+                catalog.Files.Add(remoteFile);
+                
+                // Upload updated catalog
+                var catalogJsonContent = JsonConvert.SerializeObject(catalog, Formatting.Indented);
+                var catalogBase64 = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(catalogJsonContent));
+                
+                var uploadCatalogUrl = $"https://api.github.com/repos/{_repositoryOwner}/{_repositoryName}/contents/catalog.json";
+                var uploadCatalogRequest = new HttpRequestMessage(HttpMethod.Put, uploadCatalogUrl);
+                uploadCatalogRequest.Headers.Add("Authorization", $"Bearer {githubToken}");
+                uploadCatalogRequest.Headers.Add("Accept", "application/vnd.github+json");
+                
+                var catalogPayload = new
+                {
+                    message = $"Update catalog with {localFile.Name}",
+                    content = catalogBase64,
+                    branch = _branch,
+                    sha = existingCatalogSha
+                };
+                
+                uploadCatalogRequest.Content = new StringContent(
+                    JsonConvert.SerializeObject(catalogPayload),
+                    System.Text.Encoding.UTF8,
+                    "application/json");
+                
+                var uploadCatalogResponse = await _httpClient.SendAsync(uploadCatalogRequest);
+                
+                if (!uploadCatalogResponse.IsSuccessStatusCode)
+                {
+                    var errorContent = await uploadCatalogResponse.Content.ReadAsStringAsync();
+                    throw new InvalidOperationException($"Failed to update catalog: {uploadCatalogResponse.StatusCode} - {errorContent}");
+                }
+                
+                DownloadProgress?.Invoke(this, "Catalog updated successfully");
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"Failed to update catalog: {ex.Message}", ex);
+            }
+        }
+        
+        /// <summary>
+        /// Get repository information
+        /// </summary>
+        public (string owner, string repo, string branch) GetRepositoryInfo()
+        {
+            return (_repositoryOwner, _repositoryName, _branch);
+        }
     }
 }
