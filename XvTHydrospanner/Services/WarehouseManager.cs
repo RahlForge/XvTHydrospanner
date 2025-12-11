@@ -261,7 +261,23 @@ namespace XvTHydrospanner.Services
                     // Check if custom locations were provided for this file
                     if (customFileLocations != null && customFileLocations.TryGetValue(fileName, out var customPaths))
                     {
-                        targetPaths = customPaths;
+                        targetPaths = new List<string>(customPaths);
+                        
+                        // If copyToGameRoot is enabled, also add game root equivalents for BalanceOfPower paths
+                        if (copyToGameRoot)
+                        {
+                            var additionalPaths = new List<string>();
+                            foreach (var customPath in customPaths)
+                            {
+                                if (customPath.StartsWith("BalanceOfPower/", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    // Add the game root equivalent path
+                                    var gameRootPath = customPath.Substring("BalanceOfPower/".Length);
+                                    additionalPaths.Add(gameRootPath);
+                                }
+                            }
+                            targetPaths.AddRange(additionalPaths);
+                        }
                     }
                     else
                     {

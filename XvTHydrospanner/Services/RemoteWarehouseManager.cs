@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
@@ -447,6 +448,7 @@ namespace XvTHydrospanner.Services
             if (string.IsNullOrEmpty(githubToken))
                 throw new InvalidOperationException("GitHub token is required for uploading packages");
             
+            string? zipPath = null;
             try
             {
                 DownloadProgress?.Invoke(this, $"Uploading package {package.Name}...");
@@ -458,13 +460,34 @@ namespace XvTHydrospanner.Services
                     throw new InvalidOperationException($"Package '{package.Name}' has no files to upload");
                 }
                 
-                // Upload each file in the package
+                // Upload each individual file to the files directory
                 int uploadedCount = 0;
                 foreach (var file in packageFiles)
                 {
                     DownloadProgress?.Invoke(this, $"Uploading file {++uploadedCount}/{packageFiles.Count}: {file.Name}");
                     await UploadFileAsync(file, githubToken);
                 }
+                
+                // Create a zip archive of all package files
+                DownloadProgress?.Invoke(this, $"Creating package archive...");
+                zipPath = Path.Combine(Path.GetTempPath(), $"{package.Id}.zip");
+                
+                using (var zipArchive = ZipFile.Open(zipPath, ZipArchiveMode.Create))
+                {
+                    foreach (var file in packageFiles)
+                    {
+                        if (File.Exists(file.StoragePath))
+                        {
+                            // Add file to zip with its target relative path as the entry name
+                            var entryName = file.TargetRelativePath.Replace("\\", "/");
+                            zipArchive.CreateEntryFromFile(file.StoragePath, entryName);
+                        }
+                    }
+                }
+                
+                // Upload the package archive to packages directory
+                DownloadProgress?.Invoke(this, $"Uploading package archive...");
+                await UploadPackageArchiveAsync(package.Id, zipPath, githubToken);
                 
                 // Now update the catalog with package information
                 await UpdateRemoteCatalogWithPackageAsync(package, githubToken);
@@ -474,6 +497,66 @@ namespace XvTHydrospanner.Services
             catch (Exception ex)
             {
                 throw new InvalidOperationException($"Failed to upload package: {ex.Message}", ex);
+            }
+            finally
+            {
+                // Clean up temp zip file
+                if (zipPath != null && File.Exists(zipPath))
+                {
+                    try { File.Delete(zipPath); } catch { }
+                }
+            }
+        }
+        
+        /// <summary>
+        /// Upload package archive to packages directory on GitHub
+        /// </summary>
+        private async Task UploadPackageArchiveAsync(string packageId, string zipPath, string githubToken)
+        {
+            var fileName = $"{packageId}.zip";
+            var uploadUrl = $"https://api.github.com/repos/{_repositoryOwner}/{_repositoryName}/contents/packages/{fileName}";
+            
+            // Read zip file
+            var fileBytes = await File.ReadAllBytesAsync(zipPath);
+            var base64Content = Convert.ToBase64String(fileBytes);
+            
+            // Check if file already exists (to get SHA for update)
+            var getRequest = new HttpRequestMessage(HttpMethod.Get, uploadUrl);
+            getRequest.Headers.Add("Authorization", $"Bearer {githubToken}");
+            getRequest.Headers.Add("Accept", "application/vnd.github+json");
+            
+            var getResponse = await _httpClient.SendAsync(getRequest);
+            string? existingSha = null;
+            
+            if (getResponse.IsSuccessStatusCode)
+            {
+                var existingContent = await getResponse.Content.ReadAsStringAsync();
+                var existingJson = JsonConvert.DeserializeObject<dynamic>(existingContent);
+                existingSha = existingJson?.sha;
+            }
+            
+            // Upload or update file
+            var uploadRequest = new HttpRequestMessage(HttpMethod.Put, uploadUrl);
+            uploadRequest.Headers.Add("Authorization", $"Bearer {githubToken}");
+            uploadRequest.Headers.Add("Accept", "application/vnd.github+json");
+            
+            var uploadData = new
+            {
+                message = existingSha != null ? $"Update package archive {fileName}" : $"Add package archive {fileName}",
+                content = base64Content,
+                branch = _branch,
+                sha = existingSha
+            };
+            
+            var jsonContent = JsonConvert.SerializeObject(uploadData);
+            uploadRequest.Content = new StringContent(jsonContent, System.Text.Encoding.UTF8, "application/json");
+            
+            var uploadResponse = await _httpClient.SendAsync(uploadRequest);
+            
+            if (!uploadResponse.IsSuccessStatusCode)
+            {
+                var errorContent = await uploadResponse.Content.ReadAsStringAsync();
+                throw new InvalidOperationException($"Failed to upload package archive: {uploadResponse.StatusCode} - {errorContent}");
             }
         }
         

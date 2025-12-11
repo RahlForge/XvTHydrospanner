@@ -126,6 +126,75 @@ Example:
 - Each file knows which package it belongs to via ModPackageId
 - Packages can be removed with or without deleting associated files
 
+## Copy to Game Root Feature
+
+### Overview
+When importing unstructured mods (files without folder structure in the archive), users can now automatically copy files to both BalanceOfPower and game root directories simultaneously. This ensures compatibility with both XvT and Balance of Power game modes.
+
+### Implementation Details
+
+**Date**: December 10, 2025
+
+**Modified File**: `Services/WarehouseManager.cs`
+
+**Change**: Enhanced the `AddModPackageFromArchiveAsync()` method to apply the `copyToGameRoot` option to custom file locations specified through the FileLocationPromptDialog.
+
+### How It Works
+
+1. **Unstructured Archive Import**: When importing an archive with files that have no folder structure, the FileLocationPromptDialog is shown
+2. **User Specifies Locations**: User selects target location(s) for each file (e.g., `BalanceOfPower/MELEE/`)
+3. **Copy to Game Root Checkbox**: If the "Also copy structure to game root" checkbox is enabled
+4. **Automatic Duplication**: For each BalanceOfPower path specified, the system automatically adds an equivalent game root path
+   - Example: `BalanceOfPower/MELEE/mission.tie` → also creates `MELEE/mission.tie`
+
+### Code Logic
+
+```csharp
+if (customFileLocations != null && customFileLocations.TryGetValue(fileName, out var customPaths))
+{
+    targetPaths = new List<string>(customPaths);
+    
+    // If copyToGameRoot is enabled, also add game root equivalents for BalanceOfPower paths
+    if (copyToGameRoot)
+    {
+        var additionalPaths = new List<string>();
+        foreach (var customPath in customPaths)
+        {
+            if (customPath.StartsWith("BalanceOfPower/", StringComparison.OrdinalIgnoreCase))
+            {
+                // Add the game root equivalent path
+                var gameRootPath = customPath.Substring("BalanceOfPower/".Length);
+                additionalPaths.Add(gameRootPath);
+            }
+        }
+        targetPaths.AddRange(additionalPaths);
+    }
+}
+```
+
+### User Benefits
+
+- **Simplified Setup**: No need to manually specify both BalanceOfPower and game root locations
+- **Dual Compatibility**: Ensures mods work correctly in both XvT base game and Balance of Power expansion
+- **Consistency**: Maintains identical file structure in both locations automatically
+- **Time Savings**: One click instead of manually adding each location twice
+
+### Example Scenario
+
+**User imports unstructured archive with files**: `mission1.tie`, `mission2.tie`
+
+**User actions**:
+1. Selects `BalanceOfPower/MELEE/` as location for both files in FileLocationPromptDialog
+2. Checks "Also copy structure to game root" checkbox
+3. Confirms import
+
+**Result**:
+Each file is added to warehouse with two target paths:
+- `mission1.tie` → `BalanceOfPower/MELEE/mission1.tie` **AND** `MELEE/mission1.tie`
+- `mission2.tie` → `BalanceOfPower/MELEE/mission2.tie` **AND** `MELEE/mission2.tie`
+
+When the profile is applied, files are deployed to both locations automatically.
+
 ## Next Steps (Future Enhancements)
 
 - Display which mods are currently active in a profile

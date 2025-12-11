@@ -34,15 +34,42 @@ namespace XvTHydrospanner.Views
                 
                 var catalog = await _remoteWarehouse.LoadRemoteCatalogAsync();
                 
+                if (catalog == null)
+                {
+                    MessageBox.Show("Remote catalog is null. Please check your internet connection and repository settings.", 
+                        "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    StatusText.Text = "Failed to load remote catalog";
+                    return;
+                }
+                
                 RepositoryText.Text = catalog.RepositoryUrl;
-                _allRemotePackages = catalog.Packages;
+                _allRemotePackages = catalog.Packages ?? new List<RemoteModPackage>();
                 
                 UpdatePackagesList();
-                StatusText.Text = $"Loaded {_allRemotePackages.Count} packages from remote catalog";
+                
+                var packagesCount = _allRemotePackages.Count;
+                var filesCount = catalog.Files?.Count ?? 0;
+                
+                // Build status message
+                var statusParts = new List<string>();
+                if (packagesCount > 0)
+                    statusParts.Add($"{packagesCount} package(s)");
+                if (filesCount > 0)
+                    statusParts.Add($"{filesCount} individual file(s)");
+                
+                StatusText.Text = statusParts.Count > 0 
+                    ? $"Loaded {string.Join(" and ", statusParts)} from remote catalog"
+                    : "Remote catalog is empty";
+                
+                if (packagesCount == 0 && filesCount == 0)
+                {
+                    MessageBox.Show("The remote catalog is empty. No packages or files available for download.", 
+                        "Information", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Failed to load remote catalog: {ex.Message}", "Error", 
+                MessageBox.Show($"Failed to load remote catalog: {ex.Message}\n\nStack trace: {ex.StackTrace}", "Error", 
                     MessageBoxButton.OK, MessageBoxImage.Error);
                 StatusText.Text = "Failed to load remote catalog";
             }
@@ -54,7 +81,7 @@ namespace XvTHydrospanner.Views
         
         private void UpdatePackagesList()
         {
-            var searchTerm = SearchBox.Text.ToLower();
+            var searchTerm = SearchBox.Text?.ToLower() ?? string.Empty;
             
             var filteredPackages = _allRemotePackages.AsEnumerable();
             
@@ -62,12 +89,21 @@ namespace XvTHydrospanner.Views
             if (!string.IsNullOrWhiteSpace(searchTerm))
             {
                 filteredPackages = filteredPackages.Where(p =>
-                    p.Name.ToLower().Contains(searchTerm) ||
-                    p.Description.ToLower().Contains(searchTerm) ||
+                    (p.Name?.ToLower().Contains(searchTerm) ?? false) ||
+                    (p.Description?.ToLower().Contains(searchTerm) ?? false) ||
                     (p.Author?.ToLower().Contains(searchTerm) ?? false));
             }
             
-            RemotePackagesGrid.ItemsSource = filteredPackages.ToList();
+            var filteredList = filteredPackages.ToList();
+            RemotePackagesGrid.ItemsSource = filteredList;
+            
+            // Update status with count
+            var totalCount = _allRemotePackages.Count;
+            var displayedCount = filteredList.Count;
+            if (totalCount != displayedCount)
+            {
+                StatusText.Text = $"Showing {displayedCount} of {totalCount} package(s)";
+            }
         }
         
         private void SearchBox_TextChanged(object sender, TextChangedEventArgs e)
@@ -174,6 +210,36 @@ namespace XvTHydrospanner.Views
                 _remoteWarehouse.RefreshDownloadStatus();
                 UpdatePackagesList();
             });
+        }
+        
+        private async void ContextMenu_Download_Click(object sender, RoutedEventArgs e)
+        {
+            if (RemotePackagesGrid.SelectedItem is RemoteModPackage remotePackage)
+            {
+                if (remotePackage.IsDownloaded)
+                {
+                    MessageBox.Show($"Package '{remotePackage.Name}' is already downloaded.", "Already Downloaded",
+                        MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+                
+                try
+                {
+                    StatusText.Text = $"Downloading package {remotePackage.Name}...";
+                    await _remoteWarehouse.DownloadPackageAsync(remotePackage);
+                    
+                    UpdatePackagesList();
+                    StatusText.Text = $"Successfully downloaded package {remotePackage.Name}";
+                    MessageBox.Show($"Package '{remotePackage.Name}' downloaded successfully!", "Success",
+                        MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Failed to download package: {ex.Message}", "Error",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                    StatusText.Text = "Download failed";
+                }
+            }
         }
     }
 }
