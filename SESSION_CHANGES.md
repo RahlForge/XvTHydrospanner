@@ -84,6 +84,9 @@
      - If target LST exists: MERGE (append only non-duplicate lines)
      - If target doesn't exist: COPY
    - Case-insensitive duplicate detection
+   - **CRITICAL: Preserves comment lines starting with `//`**
+   - Comment lines define section headers in XvT's in-game drop-down lists
+   - Comments always included (even if appearing to duplicate)
    - Preserves existing entries + adds new entries
 
 3. **Profile Switching with LST Rebuild**:
@@ -221,7 +224,60 @@
 6. Profile is set as active AND applied to game
 7. Header shows "Active Profile: [Name]"
 
-### 6. Removed Redundant Active Modifications Page
+### 6. Improved Profile Management Page Clarity and Usability
+**Files**:
+- `XvTHydrospanner/Views/ProfileManagementPage.xaml`
+- `XvTHydrospanner/Views/ProfileManagementPage.xaml.cs`
+
+**Changes Made**:
+
+1. **Added Active Profile Checkmark Indicator**:
+   - Green checkmark (✓) appears next to the currently active profile in the list
+   - Uses same color as Mod Library active indicators (#4EC9B0)
+   - Updates automatically when profile is applied
+   - Profile Management page refreshes automatically when Apply Profile is clicked
+   - Checkmark immediately moves to the newly applied profile
+   - Provides instant visual feedback of which profile is active
+
+2. **Removed Add Modification Button**:
+   - Eliminated "+ Add Modification" button from profile details
+   - Removed individual file modification management from this page
+   - Mod Library page is now the single place to add/remove mods from profiles
+   - Simplifies workflow and reduces redundancy
+
+3. **Changed Display from File Modifications to Mod Packages**:
+   - Section now titled "Mod Packages" instead of "File Modifications"
+   - Shows the mod packages included in the profile (not individual files)
+   - Displays package name, description, file count, and author
+   - Added helpful text: "Add or remove mods from the Mod Library page"
+   - Groups modifications by package for clearer overview
+
+**Benefits**:
+- ✅ Clearer visual indication of active profile
+- ✅ Simplified UI - removed redundant modification management
+- ✅ Package-level view easier to understand than file-level
+- ✅ Consistent with Mod Library workflow
+- ✅ Less clutter on Profile Management page
+
+**User Experience**:
+- User sees checkmark next to active profile → knows which is active
+- User sees list of mod packages → knows what mods are in profile
+- User wants to add/remove mods → goes to Mod Library page
+- User wants to apply profile → clicks Apply Profile button
+
+**Implementation Details**:
+- `LoadModPackagesForProfile()` - Extracts unique package IDs from file modifications
+- `UpdateActiveProfileIndicators()` - Shows/hides checkmarks based on active profile
+- `FindVisualChild<T>()` - Helper to find checkmark elements in visual tree
+- `LoadProfiles()` - Uses priority selection: active profile → previous selection → first item
+- Uses `Dispatcher.BeginInvoke` to update checkmarks after UI renders
+
+**Profile Selection Priority**:
+1. Active profile is selected first (most relevant to user)
+2. Falls back to maintaining previous selection (during refresh)
+3. Finally selects first item if no other context available
+
+### 7. Removed Redundant Active Modifications Page
 **Files**:
 - `XvTHydrospanner/MainWindow.xaml`
 - `XvTHydrospanner/MainWindow.xaml.cs`

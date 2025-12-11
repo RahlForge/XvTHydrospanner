@@ -264,6 +264,12 @@ namespace XvTHydrospanner
                 // Update the display
                 UpdateActiveProfileDisplay();
                 
+                // Refresh Profile Management page if it's currently visible
+                if (ContentFrame.Content is ProfileManagementPage profileMgmtPage)
+                {
+                    profileMgmtPage.LoadProfiles();
+                }
+                
                 StatusText.Text = $"Applied: {success} succeeded, {failed} failed";
                 MessageBox.Show($"Profile '{profileToApply.Name}' applied:\n{success} modifications succeeded\n{failed} modifications failed",
                     "Apply Complete", MessageBoxButton.OK, MessageBoxImage.Information);

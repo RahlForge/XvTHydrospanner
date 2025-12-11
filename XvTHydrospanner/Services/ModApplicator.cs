@@ -136,6 +136,7 @@ namespace XvTHydrospanner.Services
         
         /// <summary>
         /// Merge LST file content by appending mod lines that aren't already present
+        /// IMPORTANT: Preserves comment lines (starting with //) which are vital for XvT in-game headers
         /// </summary>
         private async Task MergeLstFileAsync(string modLstPath, string targetPath)
         {
@@ -161,8 +162,21 @@ namespace XvTHydrospanner.Services
             foreach (var line in modLines)
             {
                 var trimmed = line.Trim();
-                if (!string.IsNullOrWhiteSpace(trimmed) && !existingLines.Contains(trimmed))
+                
+                // Skip truly empty lines, but preserve everything else including comments
+                if (string.IsNullOrWhiteSpace(trimmed))
+                    continue;
+                
+                // CRITICAL: Always add comment lines (// headers) even if they appear to be duplicates
+                // These define sections in XvT's in-game drop-down lists and must be preserved
+                if (trimmed.StartsWith("//"))
                 {
+                    linesToAdd.Add(trimmed);
+                    ProgressMessage?.Invoke(this, $"Adding LST header comment: {trimmed}");
+                }
+                else if (!existingLines.Contains(trimmed))
+                {
+                    // For non-comment lines, check for duplicates before adding
                     linesToAdd.Add(trimmed);
                     existingLines.Add(trimmed); // Prevent duplicates within same mod
                 }

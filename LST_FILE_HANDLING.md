@@ -87,9 +87,20 @@ private async Task MergeLstFileAsync(string modLstPath, string targetPath)
     foreach (var line in modLines)
     {
         var trimmed = line.Trim();
-        if (!string.IsNullOrWhiteSpace(trimmed) && !existingLines.Contains(trimmed))
+        
+        if (string.IsNullOrWhiteSpace(trimmed))
+            continue;
+        
+        // CRITICAL: Always preserve comment lines (// headers)
+        // These define sections in XvT's in-game drop-down lists
+        if (trimmed.StartsWith("//"))
         {
             linesToAdd.Add(trimmed);
+        }
+        else if (!existingLines.Contains(trimmed))
+        {
+            linesToAdd.Add(trimmed);
+            existingLines.Add(trimmed); // Prevent duplicates
         }
     }
     
@@ -105,8 +116,25 @@ private async Task MergeLstFileAsync(string modLstPath, string targetPath)
 - Case-insensitive duplicate detection
 - Trims whitespace
 - Ignores empty lines
-- Only adds lines that don't already exist
+- Only adds lines that don't already exist (except comments)
+- **CRITICAL: Preserves comment lines starting with `//`**
+- Comment lines define headers in XvT's in-game drop-down menus
+- Comments are always included even if they appear to duplicate
 - Appends to existing file (doesn't overwrite)
+
+**Why Comment Preservation is Critical**:
+In XvT, LST files use comments to define sections in drop-down lists:
+```
+// === STANDARD MISSIONS ===
+MISSION01.TIE
+MISSION02.TIE
+
+// === CUSTOM MISSIONS ===
+CUSTOMMISSION1.TIE
+CUSTOMMISSION2.TIE
+```
+
+Without the `//` headers, all missions appear as one flat list. With headers, they're organized into sections for better navigation. Mods often add new sections, so these comments must be preserved during merging.
 
 ### 4. Profile Switching with LST Rebuild
 **THE CRITICAL PART - Why this is essential:**

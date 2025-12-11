@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using XvTHydrospanner.Models;
@@ -35,22 +36,46 @@ namespace XvTHydrospanner.Views
             var profiles = _profileManager.GetAllProfiles();
             ProfilesListBox.ItemsSource = profiles;
             
-            // Try to maintain the current selection if it still exists
+            // Priority 1: Select the active profile if it exists
+            var activeProfile = _profileManager.GetActiveProfile();
+            if (activeProfile != null)
+            {
+                var activeInList = profiles.Find(p => p.Id == activeProfile.Id);
+                if (activeInList != null)
+                {
+                    ProfilesListBox.SelectedItem = activeInList;
+                    
+                    // Update active indicators after UI has rendered
+                    Dispatcher.BeginInvoke(new Action(() => UpdateActiveProfileIndicators()), 
+                        System.Windows.Threading.DispatcherPriority.Loaded);
+                    return;
+                }
+            }
+            
+            // Priority 2: Try to maintain the current selection if it still exists
             if (_selectedProfile != null)
             {
                 var stillExists = profiles.Find(p => p.Id == _selectedProfile.Id);
                 if (stillExists != null)
                 {
                     ProfilesListBox.SelectedItem = stillExists;
+                    
+                    // Update active indicators after UI has rendered
+                    Dispatcher.BeginInvoke(new Action(() => UpdateActiveProfileIndicators()), 
+                        System.Windows.Threading.DispatcherPriority.Loaded);
                     return;
                 }
             }
             
-            // Otherwise select first item
+            // Priority 3: Fall back to first item
             if (ProfilesListBox.Items.Count > 0)
             {
                 ProfilesListBox.SelectedIndex = 0;
             }
+            
+            // Update active indicators after UI has rendered
+            Dispatcher.BeginInvoke(new Action(() => UpdateActiveProfileIndicators()), 
+                System.Windows.Threading.DispatcherPriority.Loaded);
         }
         
         public ModProfile? GetSelectedProfile()
@@ -65,8 +90,71 @@ namespace XvTHydrospanner.Views
                 _selectedProfile = profile;
                 ProfileDetailsPanel.DataContext = profile;
                 ProfileDetailsPanel.Visibility = Visibility.Visible;
-                ModificationsListBox.ItemsSource = profile.FileModifications;
+                LoadModPackagesForProfile(profile);
             }
+        }
+        
+        private void LoadModPackagesForProfile(ModProfile profile)
+        {
+            // Get unique package IDs from the profile's file modifications
+            var packageIds = new System.Collections.Generic.HashSet<string>();
+            
+            foreach (var modification in profile.FileModifications)
+            {
+                var file = _warehouseManager.GetFile(modification.WarehouseFileId);
+                if (file != null && !string.IsNullOrEmpty(file.ModPackageId))
+                {
+                    packageIds.Add(file.ModPackageId);
+                }
+            }
+            
+            // Get the actual package objects
+            var packages = _warehouseManager.GetAllPackages()
+                .Where(p => packageIds.Contains(p.Id))
+                .ToList();
+            
+            ModPackagesListBox.ItemsSource = packages;
+        }
+        
+        private void UpdateActiveProfileIndicators()
+        {
+            var activeProfile = _profileManager.GetActiveProfile();
+            
+            // Update visibility of checkmarks in the list
+            for (int i = 0; i < ProfilesListBox.Items.Count; i++)
+            {
+                if (ProfilesListBox.ItemContainerGenerator.ContainerFromIndex(i) is ListBoxItem item)
+                {
+                    var profile = ProfilesListBox.Items[i] as ModProfile;
+                    var checkmark = FindVisualChild<System.Windows.Controls.TextBlock>(item, "ActiveCheckmark");
+                    
+                    if (checkmark != null)
+                    {
+                        checkmark.Visibility = (profile != null && activeProfile != null && profile.Id == activeProfile.Id) 
+                            ? Visibility.Visible 
+                            : Visibility.Collapsed;
+                    }
+                }
+            }
+        }
+        
+        private static T? FindVisualChild<T>(System.Windows.DependencyObject parent, string name) where T : System.Windows.FrameworkElement
+        {
+            for (int i = 0; i < System.Windows.Media.VisualTreeHelper.GetChildrenCount(parent); i++)
+            {
+                var child = System.Windows.Media.VisualTreeHelper.GetChild(parent, i);
+                
+                if (child is T typedChild && typedChild.Name == name)
+                {
+                    return typedChild;
+                }
+                
+                var result = FindVisualChild<T>(child, name);
+                if (result != null)
+                    return result;
+            }
+            
+            return null;
         }
         
         private async void NewProfileButton_Click(object sender, RoutedEventArgs e)
@@ -145,47 +233,6 @@ namespace XvTHydrospanner.Views
             }
         }
         
-        private void AddModButton_Click(object sender, RoutedEventArgs e)
-        {
-            if (_selectedProfile == null) return;
-            
-            var dialog = new AddModificationDialog(_warehouseManager);
-            if (dialog.ShowDialog() == true && dialog.SelectedWarehouseFile != null)
-            {
-                var modification = new FileModification
-                {
-                    RelativeGamePath = dialog.TargetPath,
-                    WarehouseFileId = dialog.SelectedWarehouseFile.Id,
-                    Category = dialog.SelectedWarehouseFile.Category,
-                    Description = dialog.ModDescription
-                };
-                
-                _selectedProfile.FileModifications.Add(modification);
-                _ = _profileManager.SaveProfileAsync(_selectedProfile);
-                ModificationsListBox.ItemsSource = null;
-                ModificationsListBox.ItemsSource = _selectedProfile.FileModifications;
-            }
-        }
-        
-        private async void RemoveModButton_Click(object sender, RoutedEventArgs e)
-        {
-            try
-            {
-                if (_selectedProfile == null) return;
-                
-                if (sender is Button button && button.Tag is FileModification modification)
-                {
-                    _selectedProfile.FileModifications.Remove(modification);
-                    await _profileManager.SaveProfileAsync(_selectedProfile);
-                    ModificationsListBox.ItemsSource = null;
-                    ModificationsListBox.ItemsSource = _selectedProfile.FileModifications;
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Error removing modification: {ex.Message}", "Error",
-                    MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-        }
+
     }
 }

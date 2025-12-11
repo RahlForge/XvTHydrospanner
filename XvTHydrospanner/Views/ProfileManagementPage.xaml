@@ -43,11 +43,23 @@
                              BorderThickness="0" SelectionChanged="ProfilesListBox_SelectionChanged">
                         <ListBox.ItemTemplate>
                             <DataTemplate>
-                                <StackPanel Margin="5">
-                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="White"/>
-                                    <TextBlock Text="{Binding FileModifications.Count, StringFormat='{}{0} modifications'}" 
-                                               FontSize="10" Foreground="#999999"/>
-                                </StackPanel>
+                                <Grid Margin="5">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    
+                                    <!-- Active Profile Checkmark -->
+                                    <TextBlock Grid.Column="0" Text="✓" FontSize="16" FontWeight="Bold" 
+                                               Foreground="#4EC9B0" Margin="0,0,8,0" VerticalAlignment="Center"
+                                               x:Name="ActiveCheckmark"/>
+                                    
+                                    <StackPanel Grid.Column="1">
+                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="White"/>
+                                        <TextBlock Text="{Binding FileModifications.Count, StringFormat='{}{0} modifications'}" 
+                                                   FontSize="10" Foreground="#999999"/>
+                                    </StackPanel>
+                                </Grid>
                             </DataTemplate>
                         </ListBox.ItemTemplate>
                     </ListBox>
@@ -89,37 +101,29 @@
                             </StackPanel>
                         </Grid>
                         
-                        <TextBlock Text="File Modifications" FontSize="16" FontWeight="SemiBold" 
+                        <TextBlock Text="Mod Packages" FontSize="16" FontWeight="SemiBold" 
                                    Foreground="White" Margin="0,0,0,10"/>
                         
-                        <Button x:Name="AddModButton" Content="+ Add Modification" Height="35" 
-                                Style="{StaticResource PrimaryButtonStyle}" Click="AddModButton_Click" 
-                                Margin="0,0,0,10" HorizontalAlignment="Left" Width="200"/>
+                        <TextBlock Text="Add or remove mods from the Mod Library page" FontSize="11" 
+                                   Foreground="#888888" Margin="0,0,0,10" TextWrapping="Wrap"/>
                         
-                        <ListBox x:Name="ModificationsListBox" Background="Transparent" 
-                                 BorderBrush="#3F3F46" BorderThickness="1">
+                        <ListBox x:Name="ModPackagesListBox" Background="Transparent" 
+                                 BorderBrush="#3F3F46" BorderThickness="1" MinHeight="100">
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
-                                    <Border Background="#1E1E1E" Margin="5" Padding="10" CornerRadius="3">
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
-                                            
-                                            <StackPanel Grid.Column="0">
-                                                <TextBlock Text="{Binding RelativeGamePath}" FontWeight="SemiBold" 
-                                                           Foreground="White"/>
-                                                <TextBlock Text="{Binding Description}" FontSize="10" 
-                                                           Foreground="#999999" Margin="0,3,0,0"/>
-                                                <TextBlock Text="{Binding Category}" FontSize="9" 
-                                                           Foreground="#666666" Margin="0,3,0,0"/>
+                                    <Border Background="#1E1E1E" Margin="5" Padding="15" CornerRadius="3">
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="14"
+                                                       Foreground="White"/>
+                                            <TextBlock Text="{Binding Description}" FontSize="11" 
+                                                       Foreground="#CCCCCC" Margin="0,5,0,0" TextWrapping="Wrap"/>
+                                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                                <TextBlock Text="Files: " FontSize="10" Foreground="#888888"/>
+                                                <TextBlock Text="{Binding FileIds.Count}" FontSize="10" Foreground="#888888"/>
+                                                <TextBlock Text=" • " FontSize="10" Foreground="#666666" Margin="5,0"/>
+                                                <TextBlock Text="{Binding Author}" FontSize="10" Foreground="#888888"/>
                                             </StackPanel>
-                                            
-                                            <Button Grid.Column="1" Content="×" Width="30" Height="30" 
-                                                    FontSize="20" VerticalAlignment="Top"
-                                                    Tag="{Binding}" Click="RemoveModButton_Click"/>
-                                        </Grid>
+                                        </StackPanel>
                                     </Border>
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
