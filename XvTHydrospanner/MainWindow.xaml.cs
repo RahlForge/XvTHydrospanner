@@ -203,22 +203,6 @@ namespace XvTHydrospanner
             StatusText.Text = "Remote Mod Library";
         }
         
-        private void ActiveModsButton_Click(object sender, RoutedEventArgs e)
-        {
-            if (_profileManager == null || _warehouseManager == null) return;
-            
-            var activeProfile = _profileManager.GetActiveProfile();
-            if (activeProfile != null)
-            {
-                ContentFrame.Navigate(new ActiveModsPage(activeProfile, _warehouseManager));
-                StatusText.Text = $"Active modifications for {activeProfile.Name}";
-            }
-            else
-            {
-                MessageBox.Show("No active profile selected.", "Info", MessageBoxButton.OK, MessageBoxImage.Information);
-            }
-        }
-        
         private void GameFilesButton_Click(object sender, RoutedEventArgs e)
         {
             if (_configManager == null) return;

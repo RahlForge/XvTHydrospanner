@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
 using Microsoft.Win32;
@@ -9,6 +11,53 @@ using XvTHydrospanner.Services;
 
 namespace XvTHydrospanner.Views
 {
+    /// <summary>
+    /// Wrapper class for ModPackage that includes active status for display
+    /// </summary>
+    public class ModPackageViewModel : INotifyPropertyChanged
+    {
+        private readonly ModPackage _package;
+        private bool _isActiveInProfile;
+
+        public ModPackageViewModel(ModPackage package, bool isActiveInProfile)
+        {
+            _package = package;
+            _isActiveInProfile = isActiveInProfile;
+        }
+
+        public ModPackage Package => _package;
+        
+        // Expose ModPackage properties for binding
+        public string Id => _package.Id;
+        public string Name => _package.Name;
+        public string Description => _package.Description;
+        public string? Author => _package.Author;
+        public string? Version => _package.Version;
+        public DateTime DateAdded => _package.DateAdded;
+        public List<string> Tags => _package.Tags;
+        public List<string> FileIds => _package.FileIds;
+
+        public bool IsActiveInProfile
+        {
+            get => _isActiveInProfile;
+            set
+            {
+                if (_isActiveInProfile != value)
+                {
+                    _isActiveInProfile = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+
+        protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+    }
+
     public partial class ModLibraryPage : Page
     {
         private readonly WarehouseManager _warehouseManager;
@@ -35,7 +84,22 @@ namespace XvTHydrospanner.Views
             {
                 EmptyStatePanel.Visibility = Visibility.Collapsed;
                 ModsItemsControl.Visibility = Visibility.Visible;
-                ModsItemsControl.ItemsSource = packages;
+                
+                // Get active profile to check which packages are active
+                var activeProfile = _profileManager.GetActiveProfile();
+                var activeFileIds = activeProfile?.FileModifications
+                    .Select(fm => fm.WarehouseFileId)
+                    .ToHashSet() ?? new HashSet<string>();
+                
+                // Create view models with active status
+                var packageViewModels = packages.Select(package =>
+                {
+                    // A package is active if any of its files are in the active profile
+                    var isActive = package.FileIds.Any(fileId => activeFileIds.Contains(fileId));
+                    return new ModPackageViewModel(package, isActive);
+                }).ToList();
+                
+                ModsItemsControl.ItemsSource = packageViewModels;
             }
         }
         
@@ -108,15 +172,30 @@ namespace XvTHydrospanner.Views
         
         private void ManageButton_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is Button button && button.Tag is ModPackage package)
+            if (sender is Button button)
             {
-                var dialog = new ModManagementDialog(package, _warehouseManager, _profileManager);
-                dialog.Owner = Window.GetWindow(this);
+                ModPackage? package = null;
                 
-                if (dialog.ShowDialog() == true)
+                // Handle both ModPackage and ModPackageViewModel
+                if (button.Tag is ModPackage modPackage)
                 {
-                    // Refresh the list if changes were made
-                    LoadMods();
+                    package = modPackage;
+                }
+                else if (button.Tag is ModPackageViewModel viewModel)
+                {
+                    package = viewModel.Package;
+                }
+                
+                if (package != null)
+                {
+                    var dialog = new ModManagementDialog(package, _warehouseManager, _profileManager);
+                    dialog.Owner = Window.GetWindow(this);
+                    
+                    if (dialog.ShowDialog() == true)
+                    {
+                        // Refresh the list if changes were made
+                        LoadMods();
+                    }
                 }
             }
         }

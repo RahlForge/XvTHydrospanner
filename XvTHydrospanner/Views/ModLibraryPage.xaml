@@ -91,6 +91,16 @@
                                         <RowDefinition Height="Auto"/>
                                     </Grid.RowDefinitions>
                                     
+                                    <!-- Active Indicator Badge -->
+                                    <Border Grid.Row="0" Background="#4EC9B0" Width="35" Height="35" 
+                                           CornerRadius="18" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                           Margin="0,-5,-5,0" 
+                                           Visibility="{Binding IsActiveInProfile, Converter={StaticResource BoolToVisibilityConverter}}"
+                                           ToolTip="Active in current profile">
+                                        <TextBlock Text="✓" FontSize="20" FontWeight="Bold" Foreground="White" 
+                                                  HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                    
                                     <!-- Mod Info -->
                                     <StackPanel Grid.Row="0" Margin="15" VerticalAlignment="Top">
                                         <TextBlock Text="{Binding Name}" FontSize="16" FontWeight="Bold" 

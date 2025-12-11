@@ -1,4 +1,4 @@
-﻿﻿# Session Changes
+﻿﻿﻿# Session Changes
 
 ## December 11, 2025 - Remote Package Download Fix
 
@@ -59,6 +59,28 @@
 - Wrapped settings content in a `ScrollViewer` with `VerticalScrollBarVisibility="Auto"`
 - Simplified grid structure from 9 rows to 2 rows (content + buttons)
 - Buttons remain fixed at bottom, content area scrolls as needed
+
+### 3. Removed Redundant Active Modifications Page
+**Files**:
+- `XvTHydrospanner/MainWindow.xaml`
+- `XvTHydrospanner/MainWindow.xaml.cs`
+- `XvTHydrospanner/Views/ModLibraryPage.xaml`
+- `XvTHydrospanner/Views/ModLibraryPage.xaml.cs`
+
+**Issue**: The "Active Modifications" page was redundant since the Mod Library page already displays mod information.
+
+**Solution**:
+- Removed "Active Modifications" navigation button from main window
+- Removed `ActiveModsButton_Click` handler
+- Added visual indicator (green checkmark badge) to Mod Library tiles to show which packages are active in the current profile
+- Created `ModPackageViewModel` class to track active status for each package
+- Enhanced `LoadMods()` to check active profile and mark packages accordingly
+
+**Benefits**:
+- Cleaner UI with one less navigation option
+- Active status visible at a glance in Mod Library
+- No need to switch pages to see which mods are active
+- Better user experience with consolidated information
 
 ---
 
