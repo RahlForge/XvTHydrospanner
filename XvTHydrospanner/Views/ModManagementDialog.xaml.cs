@@ -11,14 +11,16 @@ namespace XvTHydrospanner.Views
         private readonly ModPackage _package;
         private readonly WarehouseManager _warehouseManager;
         private readonly ProfileManager _profileManager;
+        private readonly ModApplicator? _modApplicator;
         private ModProfile? _activeProfile;
         
-        public ModManagementDialog(ModPackage package, WarehouseManager warehouseManager, ProfileManager profileManager)
+        public ModManagementDialog(ModPackage package, WarehouseManager warehouseManager, ProfileManager profileManager, ModApplicator? modApplicator = null)
         {
             InitializeComponent();
             _package = package;
             _warehouseManager = warehouseManager;
             _profileManager = profileManager;
+            _modApplicator = modApplicator;
             
             LoadModInfo();
             LoadFiles();
@@ -72,26 +74,69 @@ namespace XvTHydrospanner.Views
                 }
                 
                 var packageFiles = _warehouseManager.GetPackageFiles(_package.Id);
-                var addedCount = 0;
+                var addedModifications = new System.Collections.Generic.List<FileModification>();
                 
-                foreach (var modification in from file in packageFiles let existingMod = _activeProfile.FileModifications
-                    .FirstOrDefault(fm => fm.WarehouseFileId == file.Id) where existingMod == null select new FileModification
-                    {
-                        WarehouseFileId = file.Id,
-                        RelativeGamePath = file.TargetRelativePath,
-                        Category = file.Category,
-                        IsApplied = false
-                    })
+                foreach (var file in packageFiles)
                 {
-                    _activeProfile.FileModifications.Add(modification);
-                    addedCount++;
+                    var existingMod = _activeProfile.FileModifications
+                        .FirstOrDefault(fm => fm.WarehouseFileId == file.Id);
+                    
+                    if (existingMod == null)
+                    {
+                        var modification = new FileModification
+                        {
+                            WarehouseFileId = file.Id,
+                            RelativeGamePath = file.TargetRelativePath,
+                            Category = file.Category,
+                            IsApplied = false
+                        };
+                        
+                        _activeProfile.FileModifications.Add(modification);
+                        addedModifications.Add(modification);
+                    }
                 }
                 
-                if (addedCount > 0)
+                if (addedModifications.Count > 0)
                 {
                     await _profileManager.SaveProfileAsync(_activeProfile);
-                    MessageBox.Show($"Added {addedCount} file(s) from '{_package.Name}' to profile '{_activeProfile.Name}'.", 
-                        "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+                    
+                    // Apply the modifications to the game if ModApplicator is available
+                    if (_modApplicator != null)
+                    {
+                        var result = MessageBox.Show(
+                            $"Added {addedModifications.Count} file(s) from '{_package.Name}' to profile '{_activeProfile.Name}'.\n\n" +
+                            "Apply these modifications to the game now?",
+                            "Apply Modifications", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                        
+                        if (result == MessageBoxResult.Yes)
+                        {
+                            int successCount = 0;
+                            int failedCount = 0;
+                            
+                            foreach (var modification in addedModifications)
+                            {
+                                var applied = await _modApplicator.ApplyModificationAsync(modification, true);
+                                if (applied)
+                                    successCount++;
+                                else
+                                    failedCount++;
+                            }
+                            
+                            await _profileManager.SaveProfileAsync(_activeProfile);
+                            
+                            MessageBox.Show(
+                                $"Applied modifications:\n{successCount} succeeded, {failedCount} failed",
+                                "Apply Complete", MessageBoxButton.OK, MessageBoxImage.Information);
+                        }
+                    }
+                    else
+                    {
+                        MessageBox.Show(
+                            $"Added {addedModifications.Count} file(s) from '{_package.Name}' to profile '{_activeProfile.Name}'.\n\n" +
+                            "Use the 'Apply Profile' button to apply changes to the game.",
+                            "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+                    }
+                    
                     UpdateButtonStates();
                 }
                 else
@@ -119,14 +164,16 @@ namespace XvTHydrospanner.Views
                 }
                 
                 var result = MessageBox.Show(
-                    $"Remove all files from '{_package.Name}' from the active profile?",
-                    "Confirm Remove", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                    $"Remove all files from '{_package.Name}' from the active profile?\n\n" +
+                    "Note: If this mod contains LST files, you should re-apply the profile\n" +
+                    "to rebuild LST files correctly for multiplayer compatibility.",
+                    "Confirm Remove", MessageBoxButton.YesNo, MessageBoxImage.Warning);
                 
                 if (result != MessageBoxResult.Yes)
                     return;
                 
                 var packageFiles = _warehouseManager.GetPackageFiles(_package.Id);
-                var removedCount = 0;
+                var removedModifications = new System.Collections.Generic.List<FileModification>();
                 
                 foreach (var file in packageFiles)
                 {
@@ -136,15 +183,51 @@ namespace XvTHydrospanner.Views
                     if (modification != null)
                     {
                         _activeProfile.FileModifications.Remove(modification);
-                        removedCount++;
+                        removedModifications.Add(modification);
                     }
                 }
                 
-                if (removedCount > 0)
+                if (removedModifications.Count > 0)
                 {
                     await _profileManager.SaveProfileAsync(_activeProfile);
-                    MessageBox.Show($"Removed {removedCount} file(s) from profile '{_activeProfile.Name}'.", 
-                        "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+                    
+                    // Revert the modifications from the game if ModApplicator is available
+                    if (_modApplicator != null)
+                    {
+                        var revertResult = MessageBox.Show(
+                            $"Removed {removedModifications.Count} file(s) from profile '{_activeProfile.Name}'.\n\n" +
+                            "Revert these modifications from the game now?\n" +
+                            "(Recommended: Re-apply profile instead to properly rebuild LST files)",
+                            "Revert Modifications", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                        
+                        if (revertResult == MessageBoxResult.Yes)
+                        {
+                            int successCount = 0;
+                            int failedCount = 0;
+                            
+                            foreach (var modification in removedModifications)
+                            {
+                                var reverted = await _modApplicator.RevertModificationAsync(modification);
+                                if (reverted)
+                                    successCount++;
+                                else
+                                    failedCount++;
+                            }
+                            
+                            MessageBox.Show(
+                                $"Reverted modifications:\n{successCount} succeeded, {failedCount} failed\n\n" +
+                                "Recommendation: Use 'Apply Profile' button to ensure LST files are correct.",
+                                "Revert Complete", MessageBoxButton.OK, MessageBoxImage.Information);
+                        }
+                    }
+                    else
+                    {
+                        MessageBox.Show(
+                            $"Removed {removedModifications.Count} file(s) from profile '{_activeProfile.Name}'.\n\n" +
+                            "Use the 'Apply Profile' button to update the game.",
+                            "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+                    }
+                    
                     UpdateButtonStates();
                 }
             }

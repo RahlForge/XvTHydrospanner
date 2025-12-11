@@ -62,12 +62,14 @@ namespace XvTHydrospanner.Views
     {
         private readonly WarehouseManager _warehouseManager;
         private readonly ProfileManager _profileManager;
+        private readonly ModApplicator? _modApplicator;
         
-        public ModLibraryPage(WarehouseManager warehouseManager, ProfileManager profileManager)
+        public ModLibraryPage(WarehouseManager warehouseManager, ProfileManager profileManager, ModApplicator? modApplicator = null)
         {
             InitializeComponent();
             _warehouseManager = warehouseManager;
             _profileManager = profileManager;
+            _modApplicator = modApplicator;
             LoadMods();
         }
         
@@ -188,7 +190,7 @@ namespace XvTHydrospanner.Views
                 
                 if (package != null)
                 {
-                    var dialog = new ModManagementDialog(package, _warehouseManager, _profileManager);
+                    var dialog = new ModManagementDialog(package, _warehouseManager, _profileManager, _modApplicator);
                     dialog.Owner = Window.GetWindow(this);
                     
                     if (dialog.ShowDialog() == true)

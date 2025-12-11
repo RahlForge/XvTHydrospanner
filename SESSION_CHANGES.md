@@ -60,7 +60,68 @@
 - Simplified grid structure from 9 rows to 2 rows (content + buttons)
 - Buttons remain fixed at bottom, content area scrolls as needed
 
-### 3. Removed Redundant Active Modifications Page
+### 3. Implemented LST File Merging and Automatic Mod Application ⚠️ CRITICAL FOR MULTIPLAYER
+**UPDATE**: Added immediate application when adding mods to profile from Mod Library
+
+
+**Files**:
+- `XvTHydrospanner/Services/ModApplicator.cs` (Complete rewrite)
+- `XvTHydrospanner/MainWindow.xaml.cs`
+
+**Issue**: Mods were not being applied to the game directory. Additionally, XvT requires identical LST files across all multiplayer players, and simply overwriting or appending LST files would cause desync issues.
+
+**What are LST Files?**: List files that tell XvT which missions, craft, and resources to load. Different in each folder (MELEE/mission.lst, BATTLE/mission.lst, etc.). **ALL players must have IDENTICAL LST files to connect in multiplayer!**
+
+**Solution - LST File Handling**:
+1. **Base LST Backup System**:
+   - First time an LST file is modified, back up the original game version
+   - Store in `Backups/BaseLstFiles/` with same folder structure
+   - Maintain registry of backed-up files
+   - These backups are NEVER modified (preserve base game state)
+
+2. **LST File Merging**:
+   - When applying mod LST file:
+     - If target LST exists: MERGE (append only non-duplicate lines)
+     - If target doesn't exist: COPY
+   - Case-insensitive duplicate detection
+   - Preserves existing entries + adds new entries
+
+3. **Profile Switching with LST Rebuild**:
+   - Step 1: Revert old profile's regular files
+   - Step 2: Restore ALL base LST files to clean state
+   - Step 3: Apply new profile (rebuilds LST files correctly)
+   - **Why critical**: Ensures only new profile's mods are in LST files
+
+4. **Automatic Mod Application**:
+   - When user selects different profile, prompted to apply changes
+   - Shows 3-step process explanation
+   - Regular files: copied with overwrite
+   - LST files: merged intelligently
+   - Progress messages show real-time status
+
+5. **Immediate Application from Mod Library**:
+   - When adding mod to profile, user is prompted to apply immediately
+   - Avoids extra step of clicking "Apply Profile" button
+   - Files copied to game directory right away
+   - When removing mod, user can choose to revert (but profile re-apply recommended for LST files)
+
+**Multiplayer Impact**:
+- ✅ Host and players select same profile
+- ✅ All players have identical LST files
+- ✅ Players can connect successfully
+- ✅ No desync or crashes
+- ❌ Without this: Players with different LST files cannot connect
+
+**Benefits**:
+- Mods actually applied to game (files copied to game directories)
+- LST files handled correctly for multiplayer
+- Profile switching ensures clean LST state
+- Users see progress during operations
+- Automatic process - no manual file management needed
+
+**Documentation**: See `LST_FILE_HANDLING.md` for complete technical details
+
+### 4. Removed Redundant Active Modifications Page
 **Files**:
 - `XvTHydrospanner/MainWindow.xaml`
 - `XvTHydrospanner/MainWindow.xaml.cs`
