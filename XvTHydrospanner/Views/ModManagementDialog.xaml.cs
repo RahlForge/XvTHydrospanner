@@ -138,6 +138,9 @@ namespace XvTHydrospanner.Views
                     }
                     
                     UpdateButtonStates();
+                    
+                    // Set DialogResult to true so parent page knows to refresh
+                    DialogResult = true;
                 }
                 else
                 {
@@ -229,6 +232,9 @@ namespace XvTHydrospanner.Views
                     }
                     
                     UpdateButtonStates();
+                    
+                    // Set DialogResult to true so parent page knows to refresh
+                    DialogResult = true;
                 }
             }
             catch (Exception ex)

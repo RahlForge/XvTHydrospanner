@@ -96,7 +96,7 @@ namespace XvTHydrospanner
                 await _profileManager.LoadAllProfilesAsync();
                 
                 // Update UI
-                UpdateProfileComboBox();
+                UpdateActiveProfileDisplay();
                 UpdateStatusBar(config);
                 
                 // Navigate to default page
@@ -110,22 +110,18 @@ namespace XvTHydrospanner
             }
         }
         
-        private void UpdateProfileComboBox()
+        public void UpdateActiveProfileDisplay()
         {
             if (_profileManager == null) return;
-            
-            var profiles = _profileManager.GetAllProfiles();
-            ProfileComboBox.ItemsSource = profiles;
-            ProfileComboBox.DisplayMemberPath = "Name";
             
             var activeProfile = _profileManager.GetActiveProfile();
             if (activeProfile != null)
             {
-                ProfileComboBox.SelectedItem = activeProfile;
+                ActiveProfileText.Text = $"Active Profile: {activeProfile.Name}";
             }
-            else if (profiles.Count != 0)
+            else
             {
-                ProfileComboBox.SelectedIndex = 0;
+                ActiveProfileText.Text = "Active Profile: None";
             }
         }
         
@@ -135,108 +131,7 @@ namespace XvTHydrospanner
             StatusText.Text = "Ready";
         }
         
-        private async void ProfileComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            if (ProfileComboBox.SelectedItem is not ModProfile newProfile) return;
-            if (_profileManager == null || _configManager == null || _modApplicator == null) return;
-            
-            var oldProfile = _profileManager.GetActiveProfile();
-            
-            // If selecting the same profile, do nothing
-            if (oldProfile != null && oldProfile.Id == newProfile.Id) return;
-            
-            // Check if user wants to auto-apply the profile switch
-            var hasModifications = newProfile.FileModifications.Count > 0;
-            var oldHasModifications = oldProfile?.FileModifications.Count > 0;
-            
-            if (hasModifications || oldHasModifications)
-            {
-                var message = oldProfile != null
-                    ? $"Switch from profile '{oldProfile.Name}' to '{newProfile.Name}'?\n\n" +
-                      "This will:\n" +
-                      "1. Revert previous profile's regular files\n" +
-                      "2. Restore base LST files to clean state\n" +
-                      "3. Apply new profile's modifications\n\n" +
-                      "This ensures LST files are rebuilt correctly for multiplayer compatibility."
-                    : $"Apply profile '{newProfile.Name}'?\n\n" +
-                      $"This will apply {newProfile.FileModifications.Count} modification(s) to the game.";
-                
-                var result = MessageBox.Show(message, "Switch Profile", 
-                    MessageBoxButton.YesNo, MessageBoxImage.Question);
-                
-                if (result == MessageBoxResult.Yes)
-                {
-                    try
-                    {
-                        StatusText.Text = "Switching profiles...";
-                        
-                        var (applied, failed) = await _modApplicator.SwitchProfileAsync(
-                            oldProfile, 
-                            newProfile, 
-                            _configManager.GetConfig().AutoBackup);
-                        
-                        await _profileManager.SetActiveProfileAsync(newProfile.Id);
-                        await _configManager.SetActiveProfileAsync(newProfile.Id);
-                        await _profileManager.SaveProfileAsync(newProfile);
-                        if (oldProfile != null) await _profileManager.SaveProfileAsync(oldProfile);
-                        
-                        StatusText.Text = $"Profile switched: {applied} applied, {failed} failed";
-                    }
-                    catch (Exception ex)
-                    {
-                        MessageBox.Show($"Error switching profiles: {ex.Message}", "Error",
-                            MessageBoxButton.OK, MessageBoxImage.Error);
-                        StatusText.Text = "Profile switch failed";
-                        
-                        // Revert to old profile in UI
-                        if (oldProfile != null)
-                        {
-                            ProfileComboBox.SelectedItem = oldProfile;
-                        }
-                        return;
-                    }
-                }
-                else
-                {
-                    // User cancelled - revert selection in UI
-                    if (oldProfile != null)
-                    {
-                        ProfileComboBox.SelectedItem = oldProfile;
-                    }
-                    return;
-                }
-            }
-            else
-            {
-                // No modifications in either profile, just switch
-                await _profileManager.SetActiveProfileAsync(newProfile.Id);
-                await _configManager.SetActiveProfileAsync(newProfile.Id);
-                StatusText.Text = $"Active profile: {newProfile.Name}";
-            }
-        }
-        
-        private async void NewProfileButton_Click(object sender, RoutedEventArgs e)
-        {
-            try
-            {
-                if (_profileManager == null) return;
-                
-                var dialog = new NewProfileDialog();
-                if (dialog.ShowDialog() == true)
-                {
-                    var profile = await _profileManager.CreateProfileAsync(dialog.ProfileName, dialog.ProfileDescription);
-                    UpdateProfileComboBox();
-                    ProfileComboBox.SelectedItem = profile;
-                    StatusText.Text = $"Created profile: {profile.Name}";
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Error creating profile: {ex.Message}", "Error",
-                    MessageBoxButton.OK, MessageBoxImage.Error);
-                StatusText.Text = "Failed to create profile";
-            }
-        }
+
         
         private void SettingsButton_Click(object sender, RoutedEventArgs e)
         {
@@ -294,30 +189,83 @@ namespace XvTHydrospanner
             {
                 if (_profileManager == null || _configManager == null || _modApplicator == null) return;
                 
-                var activeProfile = _profileManager.GetActiveProfile();
-                if (activeProfile == null)
+                ModProfile? profileToApply = null;
+                var oldProfile = _profileManager.GetActiveProfile();
+                
+                // If on Profile Management page, get selected profile from there
+                if (ContentFrame.Content is ProfileManagementPage profilePage)
                 {
-                    MessageBox.Show("No active profile selected.", "Info", MessageBoxButton.OK, MessageBoxImage.Information);
-                    return;
+                    profileToApply = profilePage.GetSelectedProfile();
+                    if (profileToApply == null)
+                    {
+                        MessageBox.Show("Please select a profile to apply.", "Info", 
+                            MessageBoxButton.OK, MessageBoxImage.Information);
+                        return;
+                    }
+                }
+                else
+                {
+                    // Otherwise use the current active profile
+                    profileToApply = oldProfile;
+                    if (profileToApply == null)
+                    {
+                        MessageBox.Show("No profile selected. Please go to Profile Management.", "Info", 
+                            MessageBoxButton.OK, MessageBoxImage.Information);
+                        return;
+                    }
                 }
                 
                 var config = _configManager.GetConfig();
-                if (config.ConfirmBeforeApply)
+                
+                // Check if we're switching profiles
+                var isSwitchingProfiles = oldProfile != null && oldProfile.Id != profileToApply.Id;
+                
+                // Confirm action
+                if (config.ConfirmBeforeApply || isSwitchingProfiles)
                 {
-                    var result = MessageBox.Show(
-                        $"Apply all modifications from profile '{activeProfile.Name}'?\n\nThis will modify {activeProfile.FileModifications.Count} file(s).",
-                        "Confirm Apply", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                    var message = isSwitchingProfiles
+                        ? $"Switch from profile '{oldProfile?.Name}' to '{profileToApply.Name}' and apply?\n\n" +
+                          "This will:\n" +
+                          "1. Set '{profileToApply.Name}' as the active profile\n" +
+                          "2. Revert previous profile's regular files\n" +
+                          "3. Restore base LST files to clean state\n" +
+                          "4. Apply new profile's modifications\n\n" +
+                          "This ensures LST files are rebuilt correctly for multiplayer compatibility."
+                        : $"Apply profile '{profileToApply.Name}'?\n\n" +
+                          $"This will modify {profileToApply.FileModifications.Count} file(s).";
+                    
+                    var result = MessageBox.Show(message, "Confirm Apply", 
+                        MessageBoxButton.YesNo, MessageBoxImage.Question);
                     
                     if (result != MessageBoxResult.Yes)
                         return;
                 }
                 
-                StatusText.Text = "Applying profile...";
-                var (success, failed) = await _modApplicator.ApplyProfileAsync(activeProfile, config.AutoBackup);
-                await _profileManager.SaveProfileAsync(activeProfile);
+                StatusText.Text = isSwitchingProfiles ? "Switching and applying profile..." : "Applying profile...";
+                
+                int success, failed;
+                if (isSwitchingProfiles)
+                {
+                    // Use SwitchProfileAsync for proper LST handling
+                    (success, failed) = await _modApplicator.SwitchProfileAsync(oldProfile, profileToApply, config.AutoBackup);
+                }
+                else
+                {
+                    // Just apply the profile
+                    (success, failed) = await _modApplicator.ApplyProfileAsync(profileToApply, config.AutoBackup);
+                }
+                
+                // Set as active profile
+                await _profileManager.SetActiveProfileAsync(profileToApply.Id);
+                await _configManager.SetActiveProfileAsync(profileToApply.Id);
+                await _profileManager.SaveProfileAsync(profileToApply);
+                if (oldProfile != null && isSwitchingProfiles) await _profileManager.SaveProfileAsync(oldProfile);
+                
+                // Update the display
+                UpdateActiveProfileDisplay();
                 
                 StatusText.Text = $"Applied: {success} succeeded, {failed} failed";
-                MessageBox.Show($"Profile applied:\n{success} modifications succeeded\n{failed} modifications failed",
+                MessageBox.Show($"Profile '{profileToApply.Name}' applied:\n{success} modifications succeeded\n{failed} modifications failed",
                     "Apply Complete", MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)

@@ -17,16 +17,45 @@ namespace XvTHydrospanner.Views
             InitializeComponent();
             _profileManager = profileManager;
             _warehouseManager = warehouseManager;
+            
+            // Subscribe to Loaded event to refresh when page is shown
+            Loaded += ProfileManagementPage_Loaded;
+            
             LoadProfiles();
         }
         
-        private void LoadProfiles()
+        private void ProfileManagementPage_Loaded(object sender, RoutedEventArgs e)
         {
-            ProfilesListBox.ItemsSource = _profileManager.GetAllProfiles();
+            // Refresh profiles when page loads/becomes visible
+            LoadProfiles();
+        }
+        
+        public void LoadProfiles()
+        {
+            var profiles = _profileManager.GetAllProfiles();
+            ProfilesListBox.ItemsSource = profiles;
+            
+            // Try to maintain the current selection if it still exists
+            if (_selectedProfile != null)
+            {
+                var stillExists = profiles.Find(p => p.Id == _selectedProfile.Id);
+                if (stillExists != null)
+                {
+                    ProfilesListBox.SelectedItem = stillExists;
+                    return;
+                }
+            }
+            
+            // Otherwise select first item
             if (ProfilesListBox.Items.Count > 0)
             {
                 ProfilesListBox.SelectedIndex = 0;
             }
+        }
+        
+        public ModProfile? GetSelectedProfile()
+        {
+            return _selectedProfile;
         }
         
         private void ProfilesListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -37,6 +66,29 @@ namespace XvTHydrospanner.Views
                 ProfileDetailsPanel.DataContext = profile;
                 ProfileDetailsPanel.Visibility = Visibility.Visible;
                 ModificationsListBox.ItemsSource = profile.FileModifications;
+            }
+        }
+        
+        private async void NewProfileButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var dialog = new NewProfileDialog();
+                dialog.Owner = Window.GetWindow(this);
+                
+                if (dialog.ShowDialog() == true)
+                {
+                    var profile = await _profileManager.CreateProfileAsync(dialog.ProfileName, dialog.ProfileDescription);
+                    LoadProfiles();
+                    
+                    // Select the newly created profile
+                    ProfilesListBox.SelectedItem = profile;
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error creating profile: {ex.Message}", "Error",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
         

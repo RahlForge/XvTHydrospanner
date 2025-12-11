@@ -53,6 +53,8 @@
                     </ListBox>
                     
                     <StackPanel Grid.Row="2" Margin="0,10,0,0">
+                        <Button x:Name="NewProfileButton" Content="+ New Profile" Height="30" 
+                                Style="{StaticResource PrimaryButtonStyle}" Click="NewProfileButton_Click" Margin="0,0,0,5"/>
                         <Button x:Name="CloneProfileButton" Content="Clone Profile" Height="30" 
                                 Click="CloneProfileButton_Click" Margin="0,0,0,5"/>
                         <Button x:Name="DeleteProfileButton" Content="Delete Profile" Height="30" 

@@ -31,14 +31,11 @@
                     <TextBlock Text="Mod Manager for Star Wars: X-Wing vs TIE Fighter" FontSize="10" Foreground="#999999"/>
                 </StackPanel>
                 
-                <!-- Profile Selector -->
+                <!-- Active Profile Display -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock Text="Active Profile:" Foreground="White" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                    <ComboBox x:Name="ProfileComboBox" Width="200" Height="30" 
-                              SelectionChanged="ProfileComboBox_SelectionChanged"/>
-                    <Button x:Name="NewProfileButton" Content="New" Width="60" Height="30" Margin="10,0,0,0"
-                            Click="NewProfileButton_Click"/>
-                    <Button x:Name="SettingsButton" Content="⚙" Width="40" Height="30" Margin="5,0,0,0"
+                    <TextBlock x:Name="ActiveProfileText" Text="Active Profile: None" Foreground="White" 
+                               VerticalAlignment="Center" FontSize="14" FontWeight="SemiBold" Margin="0,0,15,0"/>
+                    <Button x:Name="SettingsButton" Content="⚙" Width="40" Height="30" 
                             FontSize="16" Click="SettingsButton_Click"/>
                 </StackPanel>
             </Grid>

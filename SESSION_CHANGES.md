@@ -121,7 +121,107 @@
 
 **Documentation**: See `LST_FILE_HANDLING.md` for complete technical details
 
-### 4. Removed Redundant Active Modifications Page
+### 4. Implemented Automatic Page Refresh for Better User Feedback
+**Files**:
+- `XvTHydrospanner/Views/ModManagementDialog.xaml.cs`
+- `XvTHydrospanner/Views/ProfileManagementPage.xaml.cs`
+- `XvTHydrospanner/MainWindow.xaml.cs`
+
+**Issue**: After adding/removing mods or creating profiles, the UI didn't update to reflect changes. Users had to navigate away and back to see updates.
+
+**Examples**:
+- Adding mod to profile: Green checkmark didn't appear on Mod Library tile
+- Removing mod from profile: Green checkmark didn't disappear
+- Creating new profile: Profile didn't appear in Profile Management list until navigation refresh
+
+**Solution**:
+
+1. **Mod Library Page Refresh**:
+   - Set `DialogResult = true` in ModManagementDialog after adding mods
+   - Set `DialogResult = true` in ModManagementDialog after removing mods
+   - Existing code in ModLibraryPage checks DialogResult and calls LoadMods()
+   - LoadMods() rebuilds view models with updated active status
+   - Green checkmark badges update automatically
+
+2. **Profile Management Page Refresh**:
+   - Added `Loaded` event handler to refresh profiles when page becomes visible
+   - Made `LoadProfiles()` public for external refresh capability
+   - Enhanced LoadProfiles() to maintain current selection after refresh
+   - MainWindow now refreshes ProfileManagementPage after creating new profile
+
+**Benefits**:
+- ✅ Immediate visual feedback - checkmarks appear/disappear instantly
+- ✅ No manual refresh needed - automatic updates
+- ✅ UI always reflects current state
+- ✅ Better user experience - responsive and intuitive
+- ✅ Selection maintained where possible (Profile Management)
+
+**User Experience**:
+- Add mod → Dialog closes → Mod Library refreshes → Checkmark appears
+- Remove mod → Dialog closes → Mod Library refreshes → Checkmark disappears
+- Create profile → Profile created → Profile list updates immediately
+- Navigate to Profile Management → Always shows latest profiles
+
+### 5. Restructured Profile Management UI for Better Workflow
+**Files**:
+- `XvTHydrospanner/MainWindow.xaml`
+- `XvTHydrospanner/MainWindow.xaml.cs`
+- `XvTHydrospanner/Views/ProfileManagementPage.xaml`
+- `XvTHydrospanner/Views/ProfileManagementPage.xaml.cs`
+
+**Changes Made**:
+
+1. **Moved New Profile Button**:
+   - Removed "New" button from MainWindow header
+   - Added "+ New Profile" button to Profile Management page
+   - Positioned with Clone and Delete buttons (all profile operations in one place)
+   - Creates profile and immediately selects it in the list
+
+2. **Removed Profile Dropdown**:
+   - Removed profile selection ComboBox from MainWindow header
+   - Replaced with simple text display: "Active Profile: [Name]"
+   - Profile switching now happens through Apply Profile button
+
+3. **Enhanced Apply Profile Button**:
+   - If on Profile Management page: Uses selected profile from list
+   - Sets selected profile as the active profile
+   - If switching profiles: Uses SwitchProfileAsync for proper LST handling
+   - If same profile: Just applies modifications
+   - Automatically updates "Active Profile" display after applying
+
+**Workflow Changes**:
+
+**Before**:
+```
+- Create profile: Click "New" in header → Enter details
+- Switch profile: Select from dropdown → Confirm switch
+- Apply mods: Click "Apply Profile"
+```
+
+**After**:
+```
+- Create profile: Go to Profile Management → Click "+ New Profile" → Enter details
+- Switch & apply: Go to Profile Management → Select profile → Click "Apply Profile"
+- Profile operations all in Profile Management page (New, Clone, Delete)
+```
+
+**Benefits**:
+- ✅ Consolidated UI - All profile operations in one place
+- ✅ Clearer workflow - Apply Profile both switches and applies
+- ✅ Simplified header - Just shows active profile name
+- ✅ No accidental switches - Must explicitly apply to switch
+- ✅ Better for LST files - Switching always uses proper rebuild logic
+
+**User Experience**:
+1. User goes to Profile Management
+2. Sees list of all profiles
+3. Can create new, clone, or delete profiles
+4. Selects desired profile
+5. Clicks "Apply Profile" button (in left nav)
+6. Profile is set as active AND applied to game
+7. Header shows "Active Profile: [Name]"
+
+### 6. Removed Redundant Active Modifications Page
 **Files**:
 - `XvTHydrospanner/MainWindow.xaml`
 - `XvTHydrospanner/MainWindow.xaml.cs`
