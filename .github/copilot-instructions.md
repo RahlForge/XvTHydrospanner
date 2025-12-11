@@ -7,6 +7,7 @@ This application is a mod manager for the LucasArts game "Star Wars - X-Wing vs 
 - Allow users to apply mod files to their game structure
 - Generate appropriate .lst files for applied mods in addition to base game files
 - Enable profile-based mod management so users can quickly, easily, and accurately switch between different mod configurations
+- Allow import and management of mod packages locally, and allow syncing of those packages with a remote repository
 
 ## Important Locations
 - **Project Source**: `C:\Users\rahlf\source\repos\XvTHydrospanner`
@@ -18,3 +19,4 @@ When starting a session, familiarize yourself with:
 2. The game folder structure in `C:\GOG Games\Star Wars-XVT`
 3. How mod profiles are defined and managed
 4. The .lst file generation system for mod application
+5. How mod packages are imported, stored, and synced between local and remote warehouses

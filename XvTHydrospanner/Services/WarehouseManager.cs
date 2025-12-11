@@ -259,27 +259,44 @@ namespace XvTHydrospanner.Services
                     List<string> targetPaths = new List<string>();
                     
                     // Check if custom locations were provided for this file
-                    if (customFileLocations != null && customFileLocations.TryGetValue(fileName, out var customPaths))
+                    // This uses a three-level matching strategy to handle different archive formats:
+                    // 1. Archive entry path (e.g., "BalanceOfPower/BATTLE/BATTLE01.TIE") - for remote packages
+                    // 2. Normalized path with forward slashes - handles Windows/ZIP path separator differences  
+                    // 3. Filename only (e.g., "BATTLE01.TIE") - for backward compatibility with older packages
+                    List<string>? customPaths = null;
+                    if (customFileLocations != null)
                     {
-                        targetPaths = new List<string>(customPaths);
-                        
-                        // If copyToGameRoot is enabled, also add game root equivalents for BalanceOfPower paths
-                        if (copyToGameRoot)
+                        // Strategy 1: Try the original path from the archive first (exact match)
+                        // This handles remote packages where ZIP entries are stored with full target paths
+                        if (customFileLocations.TryGetValue(originalPath, out customPaths) ||
+                            // Strategy 2: Also try with normalized path (forward slashes)
+                            // ZIP files use forward slashes, but Windows paths might use backslashes
+                            customFileLocations.TryGetValue(originalPath.Replace("\\", "/"), out customPaths) ||
+                            // Strategy 3: Fall back to filename match for backward compatibility
+                            // Supports older packages and manual imports that don't have full path mappings
+                            customFileLocations.TryGetValue(fileName, out customPaths))
                         {
-                            var additionalPaths = new List<string>();
-                            foreach (var customPath in customPaths)
+                            targetPaths = new List<string>(customPaths);
+                            
+                            // If copyToGameRoot is enabled, also add game root equivalents for BalanceOfPower paths
+                            if (copyToGameRoot)
                             {
-                                if (customPath.StartsWith("BalanceOfPower/", StringComparison.OrdinalIgnoreCase))
+                                var additionalPaths = new List<string>();
+                                foreach (var customPath in customPaths)
                                 {
-                                    // Add the game root equivalent path
-                                    var gameRootPath = customPath.Substring("BalanceOfPower/".Length);
-                                    additionalPaths.Add(gameRootPath);
+                                    if (customPath.StartsWith("BalanceOfPower/", StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        // Add the game root equivalent path
+                                        var gameRootPath = customPath.Substring("BalanceOfPower/".Length);
+                                        additionalPaths.Add(gameRootPath);
+                                    }
                                 }
+                                targetPaths.AddRange(additionalPaths);
                             }
-                            targetPaths.AddRange(additionalPaths);
                         }
                     }
-                    else
+                    
+                    if (customPaths == null)
                     {
                         // Determine category and target path based on folder structure and file extension
                         var (category, targetPath) = DetermineFilePathAndCategory(originalPath, fileName);

@@ -1,4 +1,68 @@
-﻿# Session Changes - December 10, 2024
+﻿﻿# Session Changes
+
+## December 11, 2025 - Remote Package Download Fix
+
+### 1. Fixed Remote Package Target Path Issue ⚠️ CRITICAL FIX
+**Files**: 
+- `XvTHydrospanner/Services/ArchiveExtractor.cs` (Lines ~43-70)
+- `XvTHydrospanner/Services/RemoteWarehouseManager.cs` (Lines ~145-175)
+- `XvTHydrospanner/Services/WarehouseManager.cs` (Lines ~252-295)
+
+**Issue**: When downloading mod packages from the remote library, files were not being placed in their correct target paths, AND filenames were being corrupted with `_1` suffixes. All files were defaulting to the game root with duplicate filenames like `BATTLE01_1.TIE` instead of `BATTLE01.TIE`.
+
+**Example Problem**:
+- Expected: 60fps Fix with 3 files in game root + 3 files in BalanceOfPower
+- Got: All 6 files in game root, with duplicates named `BATTLE01.TIE`, `BATTLE01_1.TIE`, etc.
+
+**Root Cause**: 
+- When uploading, files are stored in ZIP with full paths (e.g., `BalanceOfPower/BATTLE/BATTLE01.TIE`)
+- When downloading, TWO problems occurred:
+  1. **Archive extraction flattened directory structure**: All files extracted to single temp directory
+  2. **Filename collisions created `_1` suffixes**: Files with same name got renamed (BATTLE01.TIE → BATTLE01_1.TIE)
+  3. **Catalog metadata was not being passed**: No mapping from archive paths to target locations
+- Result: Wrong paths AND wrong filenames
+
+**Solution**:
+1. **ArchiveExtractor.cs**: Preserve directory structure during extraction to prevent filename collisions
+   - Changed from flat extraction (all files to `temp/`) to structured extraction (`temp/path/to/file.ext`)
+   - Eliminated filename collisions at the source
+   - Files now keep their original names without `_1` suffixes
+   - `OriginalFileName` field stores correct filename
+
+2. **RemoteWarehouseManager.cs**: Extract file location mappings from remote catalog before importing
+   - Query catalog for all files belonging to the package
+   - Build dictionary mapping ZIP entry paths to target paths
+   - Pass this mapping to `AddModPackageFromArchiveAsync`
+
+3. **WarehouseManager.cs**: Enhanced file location lookup with three-level matching strategy
+   - Level 1: Match by full archive entry path (e.g., "BalanceOfPower/BATTLE/BATTLE01.TIE")
+   - Level 2: Match by normalized path with forward slashes (handles path separators)
+   - Level 3: Match by filename only (backward compatibility for older packages)
+   - Fallback: Use path detection logic if no match found
+
+**Benefits**:
+- ✅ Files placed in correct target directories
+- ✅ Filenames preserved correctly (no more `_1` suffixes)
+- ✅ Mods work correctly with expected filenames
+- ✅ Preserves metadata through upload/download cycle
+- ✅ Backward compatible with older package formats
+- ✅ Manual imports still work with detection logic
+
+**Documentation**: See `REMOTE_PACKAGE_FIX.md` for detailed technical documentation
+
+### 2. Settings Window Made Scrollable
+**File**: `XvTHydrospanner/Views/SettingsWindow.xaml`
+
+**Issue**: When the Remote Repository Settings expander was opened, content extended below the window edge, requiring manual window resizing to see all fields.
+
+**Solution**: 
+- Wrapped settings content in a `ScrollViewer` with `VerticalScrollBarVisibility="Auto"`
+- Simplified grid structure from 9 rows to 2 rows (content + buttons)
+- Buttons remain fixed at bottom, content area scrolls as needed
+
+---
+
+## December 10, 2024
 
 ## Summary
 This session included multiple enhancements to the XvT Hydrospanner mod manager, focusing on the copy-to-game-root feature, remote mod library improvements, and fixing the package download issue.

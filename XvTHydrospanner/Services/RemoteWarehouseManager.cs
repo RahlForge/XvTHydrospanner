@@ -147,14 +147,57 @@ namespace XvTHydrospanner.Services
                 var fileBytes = await _httpClient.GetByteArrayAsync(remotePackage.DownloadUrl);
                 await File.WriteAllBytesAsync(tempPath, fileBytes);
                 
-                // Add package to local warehouse
+                // Build file location mapping from catalog
+                // This is critical for preserving file target paths when downloading packages
+                // 
+                // CONTEXT: When packages are uploaded, files are stored in ZIP with their full 
+                // TargetRelativePath as the entry name (e.g., "BalanceOfPower/BATTLE/BATTLE01.TIE").
+                // The remote catalog contains metadata for each file including its TargetRelativePath.
+                // 
+                // PROBLEM: Archive extraction flattens files by filename, causing collisions when
+                // multiple files have the same name but different paths (e.g., BATTLE01.TIE in both
+                // game root and BalanceOfPower directories).
+                // 
+                // SOLUTION: Map ZIP entry paths (which match TargetRelativePath) to their target
+                // locations BEFORE extraction, so the warehouse manager knows where each file belongs.
+                Dictionary<string, List<string>>? customFileLocations = null;
+                if (_remoteCatalog != null)
+                {
+                    // Get all files that belong to this package from the catalog
+                    var packageFiles = _remoteCatalog.Files.Where(f => f.ModPackageId == remotePackage.Id).ToList();
+                    
+                    if (packageFiles.Any())
+                    {
+                        customFileLocations = new Dictionary<string, List<string>>();
+                        
+                        // Build mapping: ZIP entry path → target location(s)
+                        // Example: {"BalanceOfPower/BATTLE/BATTLE01.TIE" → ["BalanceOfPower/BATTLE/BATTLE01.TIE"]}
+                        foreach (var file in packageFiles)
+                        {
+                            // The archive entry path uses forward slashes (ZIP standard)
+                            // and matches the TargetRelativePath from when it was uploaded
+                            var archiveEntryPath = file.TargetRelativePath.Replace("\\", "/");
+                            
+                            if (!customFileLocations.ContainsKey(archiveEntryPath))
+                            {
+                                customFileLocations[archiveEntryPath] = new List<string>();
+                            }
+                            
+                            // Store the actual target path for this file
+                            customFileLocations[archiveEntryPath].Add(file.TargetRelativePath);
+                        }
+                    }
+                }
+                
+                // Add package to local warehouse with file mappings
                 var localPackage = await _localWarehouse.AddModPackageFromArchiveAsync(
                     tempPath,
                     remotePackage.Name,
                     remotePackage.Description,
                     remotePackage.Author,
                     remotePackage.Version,
-                    remotePackage.Tags
+                    remotePackage.Tags,
+                    customFileLocations
                 );
                 
                 // Clean up temp file

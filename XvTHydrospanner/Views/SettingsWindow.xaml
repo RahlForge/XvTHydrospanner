@@ -7,70 +7,67 @@
     
     <Grid Margin="20">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
         
-        <TextBlock Grid.Row="0" Text="Application Settings" FontSize="20" FontWeight="Bold" 
-                   Foreground="White" Margin="0,0,0,20"/>
-        
-        <!-- Paths Section -->
-        <TextBlock Grid.Row="1" Text="Game Install Path" Foreground="White" Margin="0,0,0,5"/>
-        <Grid Grid.Row="2" Margin="0,0,0,15">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
-            </Grid.ColumnDefinitions>
-            <TextBox x:Name="GamePathTextBox" Grid.Column="0" Height="30" Margin="0,0,10,0"/>
-            <Button Grid.Column="1" Content="Browse..." Width="80" Height="30" Click="BrowseGamePath_Click"/>
-        </Grid>
-        
-        <TextBlock Grid.Row="3" Text="Warehouse Path" Foreground="White" Margin="0,0,0,5"/>
-        <Grid Grid.Row="4" Margin="0,0,0,15">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
-            </Grid.ColumnDefinitions>
-            <TextBox x:Name="WarehousePathTextBox" Grid.Column="0" Height="30" Margin="0,0,10,0"/>
-            <Button Grid.Column="1" Content="Browse..." Width="80" Height="30" Click="BrowseWarehousePath_Click"/>
-        </Grid>
-        
-        <!-- Options Section -->
-        <CheckBox x:Name="AutoBackupCheckBox" Grid.Row="5" Content="Automatically backup files before modifying" 
-                  Foreground="White" Margin="0,0,0,10"/>
-        <CheckBox x:Name="ConfirmApplyCheckBox" Grid.Row="6" Content="Confirm before applying profile changes" 
-                  Foreground="White" Margin="0,0,0,10"/>
-        
-        <!-- Remote Repository Section -->
-        <Expander Grid.Row="7" Header="Remote Repository Settings" 
-                  Foreground="White" Margin="0,10,0,0" IsExpanded="False">
-            <StackPanel Margin="10">
-                <TextBlock Text="GitHub Repository Owner (e.g., RahlForge)" Foreground="#CCCCCC" Margin="0,0,0,5"/>
-                <TextBox x:Name="RemoteOwnerTextBox" Height="30" Margin="0,0,0,10"/>
+        <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto" Margin="0,0,0,10">
+            <StackPanel>
+                <TextBlock Text="Application Settings" FontSize="20" FontWeight="Bold" 
+                           Foreground="White" Margin="0,0,0,20"/>
                 
-                <TextBlock Text="Repository Name (e.g., XvTHydrospanner-Mods)" Foreground="#CCCCCC" Margin="0,0,0,5"/>
-                <TextBox x:Name="RemoteRepoTextBox" Height="30" Margin="0,0,0,10"/>
+                <!-- Paths Section -->
+                <TextBlock Text="Game Install Path" Foreground="White" Margin="0,0,0,5"/>
+                <Grid Margin="0,0,0,15">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="GamePathTextBox" Grid.Column="0" Height="30" Margin="0,0,10,0"/>
+                    <Button Grid.Column="1" Content="Browse..." Width="80" Height="30" Click="BrowseGamePath_Click"/>
+                </Grid>
                 
-                <TextBlock Text="Branch (e.g., main)" Foreground="#CCCCCC" Margin="0,0,0,5"/>
-                <TextBox x:Name="RemoteBranchTextBox" Height="30" Margin="0,0,0,10"/>
+                <TextBlock Text="Warehouse Path" Foreground="White" Margin="0,0,0,5"/>
+                <Grid Margin="0,0,0,15">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="WarehousePathTextBox" Grid.Column="0" Height="30" Margin="0,0,10,0"/>
+                    <Button Grid.Column="1" Content="Browse..." Width="80" Height="30" Click="BrowseWarehousePath_Click"/>
+                </Grid>
                 
-                <TextBlock Text="GitHub Personal Access Token (for uploading mods)" Foreground="#CCCCCC" Margin="0,10,0,5"/>
-                <PasswordBox x:Name="GitHubTokenBox" Height="30" Margin="0,0,0,5"/>
-                <TextBlock Text="Required for uploading. Create at: github.com/settings/tokens" 
-                           Foreground="#999999" FontSize="10" FontStyle="Italic" Margin="0,0,0,10"/>
+                <!-- Options Section -->
+                <CheckBox x:Name="AutoBackupCheckBox" Content="Automatically backup files before modifying" 
+                          Foreground="White" Margin="0,0,0,10"/>
+                <CheckBox x:Name="ConfirmApplyCheckBox" Content="Confirm before applying profile changes" 
+                          Foreground="White" Margin="0,0,0,10"/>
                 
-                <TextBlock Text="Leave blank to use defaults" Foreground="#999999" FontSize="10" FontStyle="Italic"/>
+                <!-- Remote Repository Section -->
+                <Expander Header="Remote Repository Settings" 
+                          Foreground="White" Margin="0,10,0,0" IsExpanded="False">
+                    <StackPanel Margin="10">
+                        <TextBlock Text="GitHub Repository Owner (e.g., RahlForge)" Foreground="#CCCCCC" Margin="0,0,0,5"/>
+                        <TextBox x:Name="RemoteOwnerTextBox" Height="30" Margin="0,0,0,10"/>
+                        
+                        <TextBlock Text="Repository Name (e.g., XvTHydrospanner-Mods)" Foreground="#CCCCCC" Margin="0,0,0,5"/>
+                        <TextBox x:Name="RemoteRepoTextBox" Height="30" Margin="0,0,0,10"/>
+                        
+                        <TextBlock Text="Branch (e.g., main)" Foreground="#CCCCCC" Margin="0,0,0,5"/>
+                        <TextBox x:Name="RemoteBranchTextBox" Height="30" Margin="0,0,0,10"/>
+                        
+                        <TextBlock Text="GitHub Personal Access Token (for uploading mods)" Foreground="#CCCCCC" Margin="0,10,0,5"/>
+                        <PasswordBox x:Name="GitHubTokenBox" Height="30" Margin="0,0,0,5"/>
+                        <TextBlock Text="Required for uploading. Create at: github.com/settings/tokens" 
+                                   Foreground="#999999" FontSize="10" FontStyle="Italic" Margin="0,0,0,10"/>
+                        
+                        <TextBlock Text="Leave blank to use defaults" Foreground="#999999" FontSize="10" FontStyle="Italic"/>
+                    </StackPanel>
+                </Expander>
             </StackPanel>
-        </Expander>
+        </ScrollViewer>
         
-        <StackPanel Grid.Row="8" Orientation="Horizontal" HorizontalAlignment="Right">
+        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right">
             <Button Content="Save" Width="80" Height="30" IsDefault="True" 
                     Style="{StaticResource PrimaryButtonStyle}" Click="SaveButton_Click" Margin="0,0,10,0"/>
             <Button Content="Cancel" Width="80" Height="30" IsCancel="True"/>

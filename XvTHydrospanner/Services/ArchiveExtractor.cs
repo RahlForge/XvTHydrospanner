@@ -47,26 +47,30 @@ namespace XvTHydrospanner.Services
                     if (string.IsNullOrEmpty(entry.Key))
                         continue;
                     
+                    // Normalize the entry path (replace backslashes with forward slashes)
+                    var normalizedEntryPath = entry.Key.Replace("\\", "/");
+                    
                     // Get just the filename without directory structure
-                    var fileName = Path.GetFileName(entry.Key);
+                    var fileName = Path.GetFileName(normalizedEntryPath);
                     
                     if (string.IsNullOrEmpty(fileName))
                         continue;
                     
-                    var extractPath = Path.Combine(tempDir, fileName);
+                    // IMPORTANT: Preserve directory structure to avoid filename collisions
+                    // Instead of flattening all files to tempDir, maintain the archive structure
+                    // This prevents BATTLE01.TIE and BalanceOfPower/BATTLE/BATTLE01.TIE from colliding
+                    var relativePath = normalizedEntryPath.Replace("/", Path.DirectorySeparatorChar.ToString());
+                    var extractPath = Path.Combine(tempDir, relativePath);
                     
-                    // Handle duplicate filenames by appending a number
-                    var baseName = Path.GetFileNameWithoutExtension(fileName);
-                    var extension = Path.GetExtension(fileName);
-                    var counter = 1;
-                    
-                    while (File.Exists(extractPath))
+                    // Ensure the directory exists
+                    var extractDir = Path.GetDirectoryName(extractPath);
+                    if (!string.IsNullOrEmpty(extractDir) && !Directory.Exists(extractDir))
                     {
-                        extractPath = Path.Combine(tempDir, $"{baseName}_{counter}{extension}");
-                        counter++;
+                        Directory.CreateDirectory(extractDir);
                     }
                     
-                    entry.WriteToFile(extractPath, new ExtractionOptions { ExtractFullPath = false });
+                    // Extract with full path preservation
+                    entry.WriteToFile(extractPath, new ExtractionOptions { ExtractFullPath = false, Overwrite = true });
                     
                     // Map the original path in archive to extracted file path
                     extractedFiles[entry.Key] = extractPath;
