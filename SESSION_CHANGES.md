@@ -277,7 +277,86 @@
 2. Falls back to maintaining previous selection (during refresh)
 3. Finally selects first item if no other context available
 
-### 7. Removed Redundant Active Modifications Page
+### 7. Added Remote Package Deletion with Authentication
+**Files**:
+- `XvTHydrospanner/Services/RemoteWarehouseManager.cs`
+- `XvTHydrospanner/Views/RemoteModsPage.xaml`
+- `XvTHydrospanner/Views/RemoteModsPage.xaml.cs`
+- `XvTHydrospanner/MainWindow.xaml.cs`
+
+**Feature**: Ability to delete mod packages from the remote library with proper authentication and validation.
+
+**Changes Made**:
+
+1. **UI - Delete Button**:
+   - Added trash can button (🗑) to Actions column on Remote Mods page
+   - Red color to indicate destructive action
+   - Tooltip: "Delete Package from Remote Library"
+   - Positioned next to download button
+
+2. **Authentication & Validation**:
+   - Validates GitHub token exists before allowing deletion
+   - Calls `ValidateGitHubTokenAsync()` to verify write access
+   - Checks for push/admin permissions on repository
+   - Clear error messages if token missing or unauthorized
+
+3. **Deletion Process** (`DeletePackageAsync`):
+   - **Step 1**: Delete package ZIP file from `packages/` folder
+   - **Step 2**: Delete all associated individual files from `files/` folder
+   - **Step 3**: Update remote catalog to remove package and file entries
+   - Atomic operation with progress messages
+   - Comprehensive error handling
+
+4. **User Confirmation**:
+   - Shows detailed confirmation dialog before deletion
+   - Lists what will be deleted (ZIP, files, catalog entries)
+   - Warns that action cannot be undone
+   - User must explicitly click "Yes" to proceed
+
+5. **Supporting Methods**:
+   - `ValidateGitHubTokenAsync()` - Checks token has write access
+   - `DeleteFileFromRepositoryAsync()` - Deletes individual files via GitHub API
+   - `UpdateRemoteCatalogAsync()` - Updates catalog after deletion
+
+**Validation Flow**:
+```
+1. User clicks delete button
+2. Check ConfigurationManager exists
+3. Check GitHub token configured
+4. Validate token has write access (API call)
+5. Show confirmation dialog
+6. Perform deletion if confirmed
+7. Reload catalog to reflect changes
+```
+
+**Error Handling**:
+- Missing token → Clear guidance to configure in Settings
+- Invalid/expired token → Error message with instructions
+- No write access → Explains push/admin permissions needed
+- Partial deletion failure → Warning about checking repository
+- Individual file deletion failures → Logged as warnings, doesn't stop process
+
+**User Experience**:
+- Clear feedback at every step
+- Progress messages in status bar
+- Confirmation shows exactly what will be deleted
+- Success message confirms completion
+- Automatic catalog refresh after deletion
+
+**Security**:
+- Only users with valid GitHub tokens can delete
+- Token must have push or admin permissions
+- Validation performed before any destructive actions
+- Repository permissions enforced by GitHub API
+
+**Benefits**:
+- ✅ Allows mod library maintainers to remove packages
+- ✅ Proper authentication prevents unauthorized deletions
+- ✅ Comprehensive cleanup (ZIP + files + catalog)
+- ✅ Clear user feedback and confirmation
+- ✅ Atomic operation with error recovery
+
+### 8. Removed Redundant Active Modifications Page
 **Files**:
 - `XvTHydrospanner/MainWindow.xaml`
 - `XvTHydrospanner/MainWindow.xaml.cs`
@@ -301,7 +380,603 @@
 
 ---
 
-## December 10, 2024
+### 9. Overhauled LST Merging with Intelligent Parser
+**File**: `XvTHydrospanner/Services/ModApplicator.cs`
+
+**Issue**: Simple line-by-line LST merging caused duplicate headers when reapplying profiles and didn't understand the structured format of XvT LST files.
+
+**Problems with Old Approach**:
+1. Always added comment lines (headers) even if already present
+2. Reapplying same profile would duplicate all headers
+3. Didn't understand mission structure (3 lines: ID, filename, name)
+4. Couldn't detect if mission already existed under different header
+5. No awareness of section organization
+
+**LST File Structure** (XvT mission.lst format):
+```
+Header 1
+//
+1
+mission1.tie
+Mission 1 Name
+2
+mission2.tie
+Mission 2 Name
+//
+Header 2
+//
+4
+mission4.tie
+Mission 4 Name
+//
+```
+
+**New Intelligent Approach**:
+
+1. **Parse Target LST**:
+   - Identify all sections (headers)
+   - Parse missions (3-line groups: ID, filename, name)
+   - Build lookup of existing missions by filename
+
+2. **Parse Mod LST**:
+   - Same structure parsing
+   - Identify all sections and missions
+
+3. **Intelligent Comparison**:
+   - For each mod section, check if header exists in target
+   - If header exists: Add only missions not already present
+   - If header new: Create new section with missions
+   - Track missions by filename (case-insensitive)
+
+4. **Rebuild LST**:
+   - Write complete file with proper structure
+   - Maintains all existing sections
+   - Adds new sections at end
+   - Proper separators (//) between sections
+
+**New Classes**:
+```csharp
+private class LstMission
+{
+    public string Id { get; set; }
+    public string Filename { get; set; }
+    public string Name { get; set; }
+}
+
+private class LstSection
+{
+    public string Header { get; set; }
+    public List<LstMission> Missions { get; set; }
+}
+```
+
+**Parsing Logic**:
+- Skips opening `//` markers
+- Detects headers (not numbers, not .tie files, not //)
+- Groups 3 lines into mission entries
+- Organizes missions under headers
+- Handles files with or without initial headers
+
+**Merge Benefits**:
+- ✅ No duplicate headers on reapply
+- ✅ No duplicate missions
+- ✅ Proper section organization
+- ✅ Case-insensitive mission detection
+- ✅ Maintains existing structure
+- ✅ Idempotent (can reapply safely)
+
+**Example Merge**:
+```
+Target has:
+  Header 1: mission1.tie, mission2.tie
+  
+Mod adds:
+  Header 1: mission2.tie, mission3.tie  ← mission2 already exists
+  Header 2: mission4.tie                ← new header
+  
+Result:
+  Header 1: mission1.tie, mission2.tie, mission3.tie  ← Only mission3 added
+  Header 2: mission4.tie                              ← New section added
+```
+
+**Reapply Safety**:
+```
+First apply:  Target empty → Adds Header 1 with missions
+Second apply: Target has missions → No changes (missions already exist)
+Result: Idempotent ✓
+```
+
+### 10. Fixed LST File Merge Line Ending Issues
+**File**: `XvTHydrospanner/Services/ModApplicator.cs`
+
+**Issue**: When merging mod LST files into target LST files, the mod content could be appended to the end of an existing line instead of starting on a new line, causing XvT to fail parsing the LST file.
+
+**Problems**:
+1. If target LST didn't end with newline, mod content would append to last line
+2. This would concatenate two mission/craft names: `MISSION01.TIECUSTOMMISSION.TIE`
+3. XvT couldn't parse the malformed line
+4. Missions/craft wouldn't load properly
+
+**Example Bad Merge**:
+```
+Before merge (target.lst):
+MISSION01.TIE
+MISSION02.TIE[no newline at end]
+
+Mod content:
+CUSTOMMISSION.TIE
+
+Bad result:
+MISSION01.TIE
+MISSION02.TIECUSTOMMISSION.TIE  ← Concatenated! XvT can't parse this
+```
+
+**Solution**:
+1. Check if target file ends with newline (examine last byte)
+2. If no newline at end, add one before appending mod content
+3. Ensures mod content always starts on a new line
+4. Prevents line concatenation issues
+
+**Updated Logic**:
+```csharp
+// Check if target ends with newline
+var fileBytes = await File.ReadAllBytesAsync(targetPath);
+if (fileBytes.Length > 0)
+{
+    var lastByte = fileBytes[fileBytes.Length - 1];
+    targetEndsWithNewline = lastByte == 0x0A || lastByte == 0x0D; // LF or CR
+}
+
+// If target doesn't end with newline, add one first
+if (File.Exists(targetPath) && !targetEndsWithNewline)
+{
+    await File.AppendAllTextAsync(targetPath, Environment.NewLine, Encoding.UTF8);
+}
+
+// Now append mod lines (each on its own line)
+await File.AppendAllLinesAsync(targetPath, linesToAdd, Encoding.UTF8);
+```
+
+**Correct Result**:
+```
+MISSION01.TIE
+MISSION02.TIE
+CUSTOMMISSION.TIE  ← Properly on new line
+```
+
+**Benefits**:
+- ✅ Mod content always starts on new line
+- ✅ No line concatenation
+- ✅ XvT can properly parse all entries
+- ✅ Missions/craft load correctly
+- ✅ No empty lines introduced (only adds newline if missing)
+
+### 10. Fixed LST File Backup Collision Error
+**File**: `XvTHydrospanner/Services/ModApplicator.cs`
+
+**Issue**: When applying mods with LST files, if the backup already existed on disk from a previous session but wasn't in the registry, the backup operation would fail with an "already exists" error.
+
+**Error Message**: 
+```
+Backups/BaseLstFiles/MELEE/mission.lst already exists...
+```
+
+**Root Cause**: 
+- `BackupBaseLstFileIfNeededAsync()` used `File.Copy(source, dest, overwrite: false)`
+- If backup file existed but wasn't in registry (interrupted session, registry corruption), copy would fail
+- Registry and filesystem state could become inconsistent
+
+**Solution**:
+- Check if backup file already exists before attempting to copy
+- If exists: Just add to registry without copying (reuse existing backup)
+- If doesn't exist: Copy as normal
+- This handles both new backups and recovery from interrupted sessions
+
+**Updated Logic**:
+```csharp
+if (File.Exists(backupPath))
+{
+    // Backup file already exists, just add to registry
+    ProgressMessage?.Invoke(this, $"Base LST backup already exists: {relativePath}");
+}
+else
+{
+    // Create the backup
+    await Task.Run(() => File.Copy(sourcePath, backupPath, overwrite: false));
+    ProgressMessage?.Invoke(this, $"Backed up base LST file: {relativePath}");
+}
+
+_baseLstFilesBackedUp.Add(relativePath);
+await SaveBaseLstFileRegistryAsync();
+```
+
+**Benefits**:
+- ✅ No more "file already exists" errors
+- ✅ Gracefully handles interrupted sessions
+- ✅ Registry-filesystem consistency maintained
+- ✅ Existing backups are preserved (not overwritten)
+
+---
+
+### 11. Fixed Profile Revert to Properly Restore LST Files
+**File**: `XvTHydrospanner/MainWindow.xaml.cs`
+
+**Issue**: Clicking "Revert Profile" button would revert regular mod files but NOT restore base LST files, leaving modified LST files in the game directory.
+
+**Problem**:
+- `RevertProfileAsync()` correctly skips LST files (they need special handling)
+- But `RevertProfileButton_Click` didn't call `RestoreAllBaseLstFilesAsync()`
+- LST files remained in modified state after revert
+- Not truly reverted to base game state
+
+**Base Game LST Backup System**:
+```
+Location: Backups/BaseLstFiles/
+Structure: Mirrors game folder structure
+Example:  Backups/BaseLstFiles/MELEE/mission.lst
+          Backups/BaseLstFiles/BalanceofPower/MELEE/mission.lst
+
+Registry: Backups/BaseLstFiles/.registry.json
+Tracks:   Which LST files have been backed up
+```
+
+**Backup Process** (first time LST is modified):
+1. Check if already backed up (registry + file existence)
+2. If not, copy base game LST to backup location
+3. Add to registry
+4. Now safe to modify game LST
+
+**Restore Process** (revert or profile switch):
+1. Read registry to find all backed up LST files
+2. Copy each backup back to game directory
+3. Overwrites any mod-modified LST files
+4. Returns to clean base game state
+
+**Fixed Revert Process**:
+```csharp
+// Step 1: Revert regular files (from .backup files)
+var (success, failed) = await _modApplicator.RevertProfileAsync(activeProfile);
+
+// Step 2: CRITICAL - Restore base LST files
+StatusText.Text = "Restoring base LST files...";
+await _modApplicator.RestoreAllBaseLstFilesAsync();
+
+// Step 3: Update profile state
+await _profileManager.SaveProfileAsync(activeProfile);
+```
+
+**Why This is Critical**:
+- Regular files have individual .backup files next to them
+- LST files have centralized base game backups
+- Must use different restoration methods
+- Missing LST restore = incomplete revert
+
+**User Impact**:
+- ✅ Revert now fully returns to base game state
+- ✅ LST files properly restored
+- ✅ Can revert and reapply cleanly
+- ✅ No leftover mod LST content
+
+**Multiplayer Impact**:
+- ✅ Clean revert ensures consistent state
+- ✅ All players reverting get identical LST files
+- ✅ Can switch between vanilla and modded cleanly
+
+---
+
+### 12. Added Automatic Base Game Install Profile Creation
+**Files**:
+- `XvTHydrospanner/Models/ModProfile.cs`
+- `XvTHydrospanner/MainWindow.xaml.cs`
+- `XvTHydrospanner/Views/ModManagementDialog.xaml.cs`
+
+**Feature**: Automatic creation of a read-only "Base Game Install" profile on first run to provide clean reference state.
+
+**Changes Made**:
+
+1. **Added IsReadOnly Flag to ModProfile**:
+   ```csharp
+   public bool IsReadOnly { get; set; }
+   ```
+   - Indicates profile cannot have mods applied
+   - Used for Base Game Install profile
+
+2. **Improved First-Run Message**:
+   - Old: "Please select your Star Wars X-Wing vs TIE Fighter installation folder."
+   - New: Detailed message emphasizing CLEAN install:
+     ```
+     ⚠️ IMPORTANT: Please select a CLEAN installation folder...
+     
+     A clean install means:
+     • No existing mods installed
+     • Original, unmodified game files  
+     • Fresh installation from GOG/Steam/CD
+     
+     This will be used as the base for creating modded profiles.
+     ```
+
+3. **Automatic Base Profile Creation**:
+   - Creates "Base Game Install" profile if no profiles exist
+   - Profile properties:
+     - Name: "Base Game Install"
+     - Description: "Clean, unmodified base game installation..."
+     - IsReadOnly: true
+     - IsActive: true (set as initial active profile)
+   - Prevents accidental modification of clean state
+
+4. **Read-Only Protection**:
+   - Apply Profile button: Checks IsReadOnly, shows warning
+   - Mod Management Dialog: Prevents adding mods to read-only profiles
+   - Clear error message guides user to clone profile
+
+**User Workflow**:
+
+**First Run**:
+1. User launches app
+2. Prompted for CLEAN game install directory
+3. User selects clean XvT installation
+4. App automatically creates "Base Game Install" profile
+5. Profile set as active
+6. User now has clean reference state
+
+**Adding Mods**:
+1. User tries to add mod to "Base Game Install"
+2. Warning dialog: "Cannot add mods to read-only profile"
+3. Guidance: "Clone this profile and add mods to the clone"
+4. User clones → adds mods → applies new profile
+5. Base profile remains clean ✓
+
+**Benefits**:
+- ✅ Clear guidance on first run
+- ✅ Automatic setup (no manual profile creation)
+- ✅ Clean reference state protected
+- ✅ Easy to return to vanilla (switch to base profile)
+- ✅ Can't accidentally mod the base install
+
+**User Messages**:
+```
+Attempting to apply Base Game Install:
+"Cannot apply profile 'Base Game Install'.
+
+This is a read-only profile (Base Game Install) that represents 
+the clean game state.
+
+To apply mods:
+1. Create a new profile or clone this one
+2. Add mods to the new profile
+3. Apply the new profile"
+```
+
+**Example Usage**:
+1. User has Base Game Install (clean, read-only)
+2. User clones → creates "My Modded Profile"
+3. Adds mods to "My Modded Profile"
+4. Applies "My Modded Profile"
+5. Later wants vanilla → applies "Base Game Install"
+6. Base profile still has no mods ✓
+
+---
+
+### 13. Fixed Case-Insensitive Path Handling for LST Files
+**File**: `XvTHydrospanner/Services/ModApplicator.cs`
+
+**Issue**: LST files weren't being updated when applied because of case sensitivity mismatches in folder names (e.g., "MELEE" vs "Melee" vs "melee").
+
+**Problem**:
+- Game folder might be `C:\GOG Games\Star Wars-XVT\MELEE\mission.lst` (uppercase)
+- Mod specification might be `Melee/mission.lst` (mixed case)
+- Code used `File.Exists(targetPath)` which failed due to case mismatch
+- Result: Code thought file didn't exist, tried to copy instead of merge
+- But copy also failed or went to wrong location
+
+**Root Cause**:
+Windows file system is case-insensitive, but path construction is case-sensitive. If you build a path with "Melee" but the actual folder is "MELEE", `File.Exists()` returns true (Windows finds it), but operations may use the wrong path.
+
+**Solution**:
+Added `GetActualPathCaseInsensitive()` method that:
+1. Checks if path exists as-is
+2. If not, walks directory tree level by level
+3. For each part, finds actual file/folder with case-insensitive match
+4. Returns the actual path as it exists on disk
+
+**Implementation**:
+```csharp
+private string GetActualPathCaseInsensitive(string path)
+{
+    // If path already exists, use it
+    if (File.Exists(path) || Directory.Exists(path))
+        return path;
+    
+    // Walk each directory level, finding actual casing
+    var entries = Directory.GetFileSystemEntries(currentPath);
+    var match = entries.FirstOrDefault(e => 
+        Path.GetFileName(e).Equals(part, StringComparison.OrdinalIgnoreCase));
+    
+    // Returns actual path: C:\GOG Games\Star Wars-XVT\MELEE\mission.lst
+    // Even if input was:    C:\GOG Games\Star Wars-XVT\Melee\mission.lst
+}
+```
+
+**Usage**:
+```csharp
+// Before: Used targetPath directly
+var targetPath = Path.Combine(_gameInstallPath, modification.RelativeGamePath);
+if (File.Exists(targetPath)) // Might work, might not
+{
+    await MergeLstFileAsync(warehouseFile.StoragePath, targetPath);
+}
+
+// After: Find actual path first
+var targetPath = Path.Combine(_gameInstallPath, modification.RelativeGamePath);
+var actualTargetPath = GetActualPathCaseInsensitive(targetPath);
+if (File.Exists(actualTargetPath)) // Always correct
+{
+    await MergeLstFileAsync(warehouseFile.StoragePath, actualTargetPath);
+}
+```
+
+**Examples**:
+```
+Input:  C:\GOG Games\Star Wars-XVT\Melee\mission.lst
+Actual: C:\GOG Games\Star Wars-XVT\MELEE\mission.lst  ← Found!
+
+Input:  C:\GOG Games\Star Wars-XVT\balanceofpower\MELEE\mission.lst  
+Actual: C:\GOG Games\Star Wars-XVT\BalanceofPower\MELEE\mission.lst  ← Fixed both parts!
+```
+
+**Benefits**:
+- ✅ LST files now properly detected and merged
+- ✅ Works regardless of case in mod specification
+- ✅ Matches actual file system structure
+- ✅ Prevents file not found errors
+- ✅ Regular files also benefit from fix
+
+**Logging Added**:
+```
+File: mission.lst, IsLST: True, Target: Melee/mission.lst, ActualPath: C:\GOG Games\Star Wars-XVT\MELEE\mission.lst
+Merging LST file: mission.lst into C:\GOG Games\Star Wars-XVT\MELEE\mission.lst
+LST file operation complete for Melee/mission.lst
+```
+
+Now users can see exactly what path is being used for debugging.
+
+---
+
+### 14. Fixed LST Parser Incorrectly Treating Mission Names as Headers
+**File**: `XvTHydrospanner/Services/ModApplicator.cs`
+
+**Issue**: The LST parser was incorrectly treating the first mission name as a section header, breaking the structure.
+
+**Problem**:
+Old parser logic:
+```
+If line is not a number AND not a .tie file AND not //:
+    → Treat as header
+```
+
+This failed because mission names are also plain text:
+```
+Header 1
+//
+1                    ← Number (mission data)
+mission1.tie         ← .tie file (mission data)
+Mission 1 Name       ← Plain text → INCORRECTLY TREATED AS HEADER!
+2
+mission2.tie
+Mission 2 Name       ← Plain text → INCORRECTLY TREATED AS HEADER!
+```
+
+**Correct LST Structure**:
+```
+[optional //]        ← Skip if present
+Header               ← Section header
+//                   ← Separator
+Line 1: Number       ← Mission ID
+Line 2: .tie file    ← Mission filename
+Line 3: Text         ← Mission name
+Line 4: Number       ← Next mission...
+Line 5: .tie file
+Line 6: Text
+...
+//                   ← End of section OR EOF
+[Next Header]        ← Repeat
+```
+
+**New Parser Logic**:
+1. Skip opening `//` if present
+2. Read header line
+3. Expect `//` after header
+4. Read lines in groups of 3 until `//` or EOF:
+   - Line 1 = Mission ID
+   - Line 2 = Mission filename  
+   - Line 3 = Mission name
+5. Repeat for remaining sections
+
+**Code Changes**:
+```csharp
+// Old approach: Guess what each line is
+if (!int.TryParse(line) && !line.EndsWith(".tie") && line != "//")
+{
+    // Treat as header
+}
+
+// New approach: Follow LST structure explicitly
+// 1. Skip opening //
+if (lines[lineIndex].Trim() == "//")
+    lineIndex++;
+
+// 2. Read header
+var header = lines[lineIndex].Trim();
+lineIndex++;
+
+// 3. Skip //
+if (lines[lineIndex].Trim() == "//")
+    lineIndex++;
+
+// 4. Read missions in groups of 3
+while (lineIndex < lines.Length && lines[lineIndex].Trim() != "//")
+{
+    missionLines.Add(lines[lineIndex].Trim());
+    lineIndex++;
+    
+    if (missionLines.Count == 3)
+    {
+        // Create mission from 3 lines
+        missions.Add(new Mission { 
+            Id = missionLines[0],
+            Filename = missionLines[1], 
+            Name = missionLines[2] 
+        });
+        missionLines.Clear();
+    }
+}
+```
+
+**Example Parsing**:
+```
+Input LST:
+//                   ← Skip
+Training Missions    ← Header for section 1
+//                   ← Skip
+1                    ← Mission 1 line 1
+train1.tie           ← Mission 1 line 2
+Basic Flight         ← Mission 1 line 3 (NOT a header!)
+2                    ← Mission 2 line 1
+train2.tie           ← Mission 2 line 2
+Advanced Combat      ← Mission 2 line 3 (NOT a header!)
+//                   ← End section 1
+Combat Missions      ← Header for section 2
+//                   ← Skip
+3                    ← Mission 3 line 1
+combat1.tie          ← Mission 3 line 2
+Asteroid Field       ← Mission 3 line 3 (NOT a header!)
+//                   ← End section 2
+
+Parsed:
+Section 1: "Training Missions"
+  Mission 1: ID=1, File=train1.tie, Name="Basic Flight"
+  Mission 2: ID=2, File=train2.tie, Name="Advanced Combat"
+Section 2: "Combat Missions"
+  Mission 3: ID=3, File=combat1.tie, Name="Asteroid Field"
+```
+
+**Benefits**:
+- ✅ Mission names correctly identified
+- ✅ Headers correctly identified
+- ✅ Structure preserved accurately
+- ✅ Merging works correctly
+- ✅ Idempotent operations maintained
+
+**Impact**:
+This was a **CRITICAL** bug that would have caused:
+- Incorrect section structure
+- Missions under wrong headers
+- Potential game crashes (malformed LST)
+- Multiplayer sync issues
+
+---
+
+## December 12, 2024
 
 ## Summary
 This session included multiple enhancements to the XvT Hydrospanner mod manager, focusing on the copy-to-game-root feature, remote mod library improvements, and fixing the package download issue.

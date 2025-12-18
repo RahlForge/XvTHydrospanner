@@ -748,5 +748,207 @@ namespace XvTHydrospanner.Services
         {
             return (_repositoryOwner, _repositoryName, _branch);
         }
+        
+        /// <summary>
+        /// Validate that a GitHub token has write access to the repository
+        /// </summary>
+        public async Task<bool> ValidateGitHubTokenAsync(string githubToken)
+        {
+            if (string.IsNullOrEmpty(githubToken))
+                return false;
+            
+            try
+            {
+                // Try to get repository information to validate token
+                var url = $"https://api.github.com/repos/{_repositoryOwner}/{_repositoryName}";
+                var request = new HttpRequestMessage(HttpMethod.Get, url);
+                request.Headers.Add("Authorization", $"Bearer {githubToken}");
+                request.Headers.Add("Accept", "application/vnd.github+json");
+                
+                var response = await _httpClient.SendAsync(request);
+                
+                if (!response.IsSuccessStatusCode)
+                    return false;
+                
+                var content = await response.Content.ReadAsStringAsync();
+                var repoInfo = JsonConvert.DeserializeObject<dynamic>(content);
+                
+                // Check if user has push access
+                var permissions = repoInfo?.permissions;
+                return permissions?.push == true || permissions?.admin == true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+        
+        /// <summary>
+        /// Delete a mod package from the remote repository
+        /// This removes the package ZIP file, all individual files, and updates the catalog
+        /// </summary>
+        public async Task DeletePackageAsync(RemoteModPackage package, string githubToken)
+        {
+            if (string.IsNullOrEmpty(githubToken))
+                throw new InvalidOperationException("GitHub token is required for deleting packages");
+            
+            if (_remoteCatalog == null)
+                throw new InvalidOperationException("Remote catalog not loaded");
+            
+            // Validate token has write access
+            if (!await ValidateGitHubTokenAsync(githubToken))
+                throw new UnauthorizedAccessException("GitHub token does not have write access to the repository");
+            
+            try
+            {
+                DownloadProgress?.Invoke(this, $"Deleting package '{package.Name}'...");
+                
+                // Step 1: Delete the package ZIP file
+                var packageFileName = $"{package.Id}.zip";
+                var packagePath = $"packages/{packageFileName}";
+                await DeleteFileFromRepositoryAsync(packagePath, githubToken, $"Delete package: {package.Name}");
+                DownloadProgress?.Invoke(this, $"Deleted package ZIP: {packageFileName}");
+                
+                // Step 2: Delete all associated individual files
+                var filesInPackage = _remoteCatalog.Files.Where(f => package.FileIds.Contains(f.Id)).ToList();
+                foreach (var file in filesInPackage)
+                {
+                    var fileName = $"{file.Id}{file.FileExtension}";
+                    var filePath = $"files/{fileName}";
+                    
+                    try
+                    {
+                        await DeleteFileFromRepositoryAsync(filePath, githubToken, $"Delete file from package: {package.Name}");
+                        DownloadProgress?.Invoke(this, $"Deleted file: {fileName}");
+                    }
+                    catch (Exception ex)
+                    {
+                        DownloadProgress?.Invoke(this, $"Warning: Could not delete file {fileName}: {ex.Message}");
+                    }
+                }
+                
+                // Step 3: Update the catalog to remove the package and its files
+                _remoteCatalog.Packages.RemoveAll(p => p.Id == package.Id);
+                
+                foreach (var fileId in package.FileIds)
+                {
+                    _remoteCatalog.Files.RemoveAll(f => f.Id == fileId);
+                }
+                
+                await UpdateRemoteCatalogAsync(githubToken, $"Remove package '{package.Name}' from catalog");
+                
+                DownloadProgress?.Invoke(this, $"Successfully deleted package '{package.Name}' and all associated files");
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"Failed to delete package: {ex.Message}", ex);
+            }
+        }
+        
+        /// <summary>
+        /// Delete a file from the GitHub repository
+        /// </summary>
+        private async Task DeleteFileFromRepositoryAsync(string repoPath, string githubToken, string commitMessage)
+        {
+            // Get the current file SHA (required for deletion)
+            var checkUrl = $"https://api.github.com/repos/{_repositoryOwner}/{_repositoryName}/contents/{repoPath}?ref={_branch}";
+            var checkRequest = new HttpRequestMessage(HttpMethod.Get, checkUrl);
+            checkRequest.Headers.Add("Authorization", $"Bearer {githubToken}");
+            checkRequest.Headers.Add("Accept", "application/vnd.github+json");
+            
+            var checkResponse = await _httpClient.SendAsync(checkRequest);
+            
+            if (!checkResponse.IsSuccessStatusCode)
+            {
+                // File doesn't exist, consider it already deleted
+                return;
+            }
+            
+            var existingContent = await checkResponse.Content.ReadAsStringAsync();
+            var existingJson = JsonConvert.DeserializeObject<dynamic>(existingContent);
+            var sha = existingJson?.sha?.ToString();
+            
+            if (string.IsNullOrEmpty(sha))
+                throw new InvalidOperationException($"Could not get SHA for file: {repoPath}");
+            
+            // Delete the file
+            var deleteUrl = $"https://api.github.com/repos/{_repositoryOwner}/{_repositoryName}/contents/{repoPath}";
+            var deleteRequest = new HttpRequestMessage(HttpMethod.Delete, deleteUrl);
+            deleteRequest.Headers.Add("Authorization", $"Bearer {githubToken}");
+            deleteRequest.Headers.Add("Accept", "application/vnd.github+json");
+            
+            var deletePayload = new
+            {
+                message = commitMessage,
+                sha = sha,
+                branch = _branch
+            };
+            
+            var jsonPayload = JsonConvert.SerializeObject(deletePayload);
+            deleteRequest.Content = new StringContent(jsonPayload, System.Text.Encoding.UTF8, "application/json");
+            
+            var deleteResponse = await _httpClient.SendAsync(deleteRequest);
+            
+            if (!deleteResponse.IsSuccessStatusCode)
+            {
+                var errorContent = await deleteResponse.Content.ReadAsStringAsync();
+                throw new InvalidOperationException($"Failed to delete file {repoPath}: {deleteResponse.StatusCode} - {errorContent}");
+            }
+        }
+        
+        /// <summary>
+        /// Update the remote catalog file on GitHub
+        /// </summary>
+        private async Task UpdateRemoteCatalogAsync(string githubToken, string commitMessage)
+        {
+            if (_remoteCatalog == null)
+                throw new InvalidOperationException("Remote catalog not loaded");
+            
+            // Serialize the updated catalog
+            var catalogJson = JsonConvert.SerializeObject(_remoteCatalog, Formatting.Indented);
+            var base64Content = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(catalogJson));
+            
+            // Get current catalog SHA
+            var catalogPath = "catalog.json";
+            var checkUrl = $"https://api.github.com/repos/{_repositoryOwner}/{_repositoryName}/contents/{catalogPath}?ref={_branch}";
+            var checkRequest = new HttpRequestMessage(HttpMethod.Get, checkUrl);
+            checkRequest.Headers.Add("Authorization", $"Bearer {githubToken}");
+            checkRequest.Headers.Add("Accept", "application/vnd.github+json");
+            
+            var checkResponse = await _httpClient.SendAsync(checkRequest);
+            
+            string? existingSha = null;
+            if (checkResponse.IsSuccessStatusCode)
+            {
+                var existingContent = await checkResponse.Content.ReadAsStringAsync();
+                var existingJson = JsonConvert.DeserializeObject<dynamic>(existingContent);
+                existingSha = existingJson?.sha;
+            }
+            
+            // Update catalog
+            var updateUrl = $"https://api.github.com/repos/{_repositoryOwner}/{_repositoryName}/contents/{catalogPath}";
+            var updateRequest = new HttpRequestMessage(HttpMethod.Put, updateUrl);
+            updateRequest.Headers.Add("Authorization", $"Bearer {githubToken}");
+            updateRequest.Headers.Add("Accept", "application/vnd.github+json");
+            
+            var updatePayload = new
+            {
+                message = commitMessage,
+                content = base64Content,
+                branch = _branch,
+                sha = existingSha
+            };
+            
+            var jsonPayload = JsonConvert.SerializeObject(updatePayload);
+            updateRequest.Content = new StringContent(jsonPayload, System.Text.Encoding.UTF8, "application/json");
+            
+            var updateResponse = await _httpClient.SendAsync(updateRequest);
+            
+            if (!updateResponse.IsSuccessStatusCode)
+            {
+                var errorContent = await updateResponse.Content.ReadAsStringAsync();
+                throw new InvalidOperationException($"Failed to update catalog: {updateResponse.StatusCode} - {errorContent}");
+            }
+        }
     }
 }

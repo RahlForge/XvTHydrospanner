@@ -76,12 +76,70 @@ namespace XvTHydrospanner.Services
         }
         
         /// <summary>
+        /// Get the actual path on disk with correct casing (handles MELEE vs Melee vs melee)
+        /// Windows is case-insensitive but we need the actual path that exists
+        /// </summary>
+        private string GetActualPathCaseInsensitive(string path)
+        {
+            // If the path already exists as-is, use it
+            if (File.Exists(path) || Directory.Exists(path))
+                return path;
+            
+            // Split into parts and check each directory level
+            var root = Path.GetPathRoot(path);
+            if (root == null) return path;
+            
+            var relativePath = path.Substring(root.Length);
+            var parts = relativePath.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            
+            var currentPath = root.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            
+            foreach (var part in parts)
+            {
+                if (string.IsNullOrEmpty(part)) continue;
+                
+                // Try to find the actual directory/file with correct casing
+                try
+                {
+                    if (Directory.Exists(currentPath))
+                    {
+                        // Look for matching directory (case-insensitive)
+                        var entries = Directory.GetFileSystemEntries(currentPath);
+                        var match = entries.FirstOrDefault(e => 
+                            Path.GetFileName(e).Equals(part, StringComparison.OrdinalIgnoreCase));
+                        
+                        if (match != null)
+                        {
+                            currentPath = match;
+                        }
+                        else
+                        {
+                            // Not found, use the provided casing
+                            currentPath = Path.Combine(currentPath, part);
+                        }
+                    }
+                    else
+                    {
+                        currentPath = Path.Combine(currentPath, part);
+                    }
+                }
+                catch
+                {
+                    // If we can't access, just combine with provided casing
+                    currentPath = Path.Combine(currentPath, part);
+                }
+            }
+            
+            return currentPath;
+        }
+        
+        /// <summary>
         /// Backup base game LST file if not already backed up
         /// </summary>
         private async Task<bool> BackupBaseLstFileIfNeededAsync(string relativePath)
         {
             if (_baseLstFilesBackedUp.Contains(relativePath))
-                return true; // Already backed up
+                return true; // Already backed up in registry
             
             var sourcePath = Path.Combine(_gameInstallPath, relativePath);
             if (!File.Exists(sourcePath))
@@ -96,12 +154,22 @@ namespace XvTHydrospanner.Services
                 Directory.CreateDirectory(backupDir);
             }
             
-            await Task.Run(() => File.Copy(sourcePath, backupPath, overwrite: false));
+            // Check if backup already exists (e.g., from previous interrupted run)
+            if (File.Exists(backupPath))
+            {
+                // Backup file already exists, just add to registry
+                ProgressMessage?.Invoke(this, $"Base LST backup already exists: {relativePath}");
+            }
+            else
+            {
+                // Create the backup
+                await Task.Run(() => File.Copy(sourcePath, backupPath, overwrite: false));
+                ProgressMessage?.Invoke(this, $"Backed up base LST file: {relativePath}");
+            }
             
             _baseLstFilesBackedUp.Add(relativePath);
             await SaveBaseLstFileRegistryAsync();
             
-            ProgressMessage?.Invoke(this, $"Backed up base LST file: {relativePath}");
             return true;
         }
         
@@ -135,58 +203,276 @@ namespace XvTHydrospanner.Services
         }
         
         /// <summary>
-        /// Merge LST file content by appending mod lines that aren't already present
-        /// IMPORTANT: Preserves comment lines (starting with //) which are vital for XvT in-game headers
+        /// Represents a mission entry in an LST file (3 lines: ID, filename, name)
+        /// </summary>
+        private class LstMission
+        {
+            public string Id { get; set; } = string.Empty;
+            public string Filename { get; set; } = string.Empty;
+            public string Name { get; set; } = string.Empty;
+        }
+        
+        /// <summary>
+        /// Represents a section in an LST file with a header and missions
+        /// </summary>
+        private class LstSection
+        {
+            public string Header { get; set; } = string.Empty;
+            public List<LstMission> Missions { get; set; } = new List<LstMission>();
+        }
+        
+        /// <summary>
+        /// Parse an LST file into structured sections and missions
+        /// LST Format: [optional //] Header // Mission1-Line1 Mission1-Line2 Mission1-Line3 ... // [repeat]
+        /// </summary>
+        private List<LstSection> ParseLstFile(string[] lines)
+        {
+            var sections = new List<LstSection>();
+            var lineIndex = 0;
+            
+            // Skip leading empty lines
+            while (lineIndex < lines.Length && string.IsNullOrWhiteSpace(lines[lineIndex]))
+            {
+                lineIndex++;
+            }
+            
+            // Skip opening // if present
+            if (lineIndex < lines.Length && lines[lineIndex].Trim() == "//")
+            {
+                lineIndex++;
+            }
+            
+            // Parse sections
+            while (lineIndex < lines.Length)
+            {
+                // Skip empty lines
+                while (lineIndex < lines.Length && string.IsNullOrWhiteSpace(lines[lineIndex]))
+                {
+                    lineIndex++;
+                }
+                
+                if (lineIndex >= lines.Length)
+                    break;
+                
+                // Read header line
+                var headerLine = lines[lineIndex].Trim();
+                if (headerLine == "//")
+                {
+                    // Skip stray // markers
+                    lineIndex++;
+                    continue;
+                }
+                
+                var section = new LstSection { Header = headerLine };
+                lineIndex++;
+                
+                // Skip empty lines after header
+                while (lineIndex < lines.Length && string.IsNullOrWhiteSpace(lines[lineIndex]))
+                {
+                    lineIndex++;
+                }
+                
+                // Expect // after header
+                if (lineIndex < lines.Length && lines[lineIndex].Trim() == "//")
+                {
+                    lineIndex++;
+                }
+                
+                // Read missions until we hit // or EOF
+                var missionLines = new List<string>();
+                while (lineIndex < lines.Length)
+                {
+                    var line = lines[lineIndex].Trim();
+                    
+                    // Check if we've reached the end of this section
+                    if (line == "//")
+                    {
+                        lineIndex++;
+                        break;
+                    }
+                    
+                    // Skip empty lines
+                    if (string.IsNullOrWhiteSpace(line))
+                    {
+                        lineIndex++;
+                        continue;
+                    }
+                    
+                    // Add line to mission data
+                    missionLines.Add(line);
+                    lineIndex++;
+                    
+                    // When we have 3 lines, create a mission
+                    if (missionLines.Count == 3)
+                    {
+                        var mission = new LstMission
+                        {
+                            Id = missionLines[0],
+                            Filename = missionLines[1],
+                            Name = missionLines[2]
+                        };
+                        section.Missions.Add(mission);
+                        missionLines.Clear();
+                    }
+                }
+                
+                // Add section if it has missions
+                if (section.Missions.Count > 0)
+                {
+                    sections.Add(section);
+                }
+            }
+            
+            return sections;
+        }
+        
+        /// <summary>
+        /// Process 3 accumulated lines into a mission entry (DEPRECATED - kept for reference)
+        /// </summary>
+        private void ProcessMissionLines(List<string> lines, LstSection section)
+        {
+            if (lines.Count == 3)
+            {
+                var mission = new LstMission
+                {
+                    Id = lines[0],
+                    Filename = lines[1],
+                    Name = lines[2]
+                };
+                section.Missions.Add(mission);
+            }
+        }
+        
+        /// <summary>
+        /// Intelligent merge of LST files that understands mission structure
+        /// CRITICAL: Properly handles headers and missions, prevents duplicates on reapply
         /// </summary>
         private async Task MergeLstFileAsync(string modLstPath, string targetPath)
         {
-            // Read existing target content
-            var existingLines = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            ProgressMessage?.Invoke(this, $"Parsing LST files for intelligent merge: {Path.GetFileName(targetPath)}");
+            
+            // Parse target LST (if exists)
+            var targetSections = new List<LstSection>();
             if (File.Exists(targetPath))
             {
-                var existing = await File.ReadAllLinesAsync(targetPath);
-                foreach (var line in existing)
+                var targetLines = await File.ReadAllLinesAsync(targetPath);
+                targetSections = ParseLstFile(targetLines);
+            }
+            
+            // Parse mod LST
+            var modLines = await File.ReadAllLinesAsync(modLstPath);
+            var modSections = ParseLstFile(modLines);
+            
+            // Build a lookup of existing missions by filename (case-insensitive)
+            var existingMissions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var section in targetSections)
+            {
+                foreach (var mission in section.Missions)
                 {
-                    var trimmed = line.Trim();
-                    if (!string.IsNullOrWhiteSpace(trimmed))
+                    existingMissions.Add(mission.Filename);
+                }
+            }
+            
+            // Track what we need to add
+            var sectionsToAdd = new List<LstSection>();
+            var missionsAddedCount = 0;
+            
+            // Process each mod section
+            foreach (var modSection in modSections)
+            {
+                // Find matching target section by header (case-insensitive)
+                var targetSection = targetSections.Find(s => 
+                    string.Equals(s.Header, modSection.Header, StringComparison.OrdinalIgnoreCase));
+                
+                if (targetSection != null)
+                {
+                    // Section exists - add only new missions
+                    var newMissions = modSection.Missions
+                        .Where(m => !existingMissions.Contains(m.Filename))
+                        .ToList();
+                    
+                    if (newMissions.Count > 0)
                     {
-                        existingLines.Add(trimmed);
+                        ProgressMessage?.Invoke(this, $"Adding {newMissions.Count} mission(s) to existing header '{modSection.Header}'");
+                        
+                        // Add to existing section
+                        foreach (var mission in newMissions)
+                        {
+                            targetSection.Missions.Add(mission);
+                            existingMissions.Add(mission.Filename);
+                            missionsAddedCount++;
+                        }
+                    }
+                }
+                else
+                {
+                    // New section - check if any missions are new
+                    var newMissions = modSection.Missions
+                        .Where(m => !existingMissions.Contains(m.Filename))
+                        .ToList();
+                    
+                    if (newMissions.Count > 0)
+                    {
+                        ProgressMessage?.Invoke(this, $"Adding new header '{modSection.Header}' with {newMissions.Count} mission(s)");
+                        
+                        var newSection = new LstSection
+                        {
+                            Header = modSection.Header,
+                            Missions = newMissions
+                        };
+                        
+                        sectionsToAdd.Add(newSection);
+                        
+                        foreach (var mission in newMissions)
+                        {
+                            existingMissions.Add(mission.Filename);
+                            missionsAddedCount++;
+                        }
                     }
                 }
             }
             
-            // Read mod LST content
-            var modLines = await File.ReadAllLinesAsync(modLstPath);
-            var linesToAdd = new List<string>();
-            
-            foreach (var line in modLines)
+            // Rebuild the target file if we have changes
+            if (missionsAddedCount > 0 || sectionsToAdd.Count > 0)
             {
-                var trimmed = line.Trim();
+                // Combine existing sections with new sections
+                var allSections = new List<LstSection>(targetSections);
+                allSections.AddRange(sectionsToAdd);
                 
-                // Skip truly empty lines, but preserve everything else including comments
-                if (string.IsNullOrWhiteSpace(trimmed))
-                    continue;
+                // Write the complete LST file
+                var outputLines = new List<string>();
                 
-                // CRITICAL: Always add comment lines (// headers) even if they appear to be duplicates
-                // These define sections in XvT's in-game drop-down lists and must be preserved
-                if (trimmed.StartsWith("//"))
+                foreach (var section in allSections)
                 {
-                    linesToAdd.Add(trimmed);
-                    ProgressMessage?.Invoke(this, $"Adding LST header comment: {trimmed}");
+                    // Add header if present
+                    if (!string.IsNullOrEmpty(section.Header))
+                    {
+                        outputLines.Add(section.Header);
+                    }
+                    
+                    // Add separator
+                    outputLines.Add("//");
+                    
+                    // Add all missions in this section
+                    foreach (var mission in section.Missions)
+                    {
+                        outputLines.Add(mission.Id);
+                        outputLines.Add(mission.Filename);
+                        outputLines.Add(mission.Name);
+                    }
+                    
+                    // Add closing separator
+                    outputLines.Add("//");
                 }
-                else if (!existingLines.Contains(trimmed))
-                {
-                    // For non-comment lines, check for duplicates before adding
-                    linesToAdd.Add(trimmed);
-                    existingLines.Add(trimmed); // Prevent duplicates within same mod
-                }
+                
+                // Write to file
+                await File.WriteAllLinesAsync(targetPath, outputLines, Encoding.UTF8);
+                
+                ProgressMessage?.Invoke(this, $"Merged LST: Added {missionsAddedCount} new mission(s) across {allSections.Count} section(s)");
             }
-            
-            // Append new lines if any
-            if (linesToAdd.Count > 0)
+            else
             {
-                await File.AppendAllLinesAsync(targetPath, linesToAdd, Encoding.UTF8);
-                ProgressMessage?.Invoke(this, $"Merged {linesToAdd.Count} line(s) into {Path.GetFileName(targetPath)}");
+                ProgressMessage?.Invoke(this, "No new missions to add - all missions already exist in target LST");
             }
         }
         
@@ -202,7 +488,12 @@ namespace XvTHydrospanner.Services
                     throw new InvalidOperationException($"Warehouse file {modification.WarehouseFileId} not found");
                 
                 var targetPath = Path.Combine(_gameInstallPath, modification.RelativeGamePath);
-                var targetDir = Path.GetDirectoryName(targetPath);
+                
+                // CRITICAL: Normalize path for case-insensitive matching on Windows
+                // Find the actual file path that exists (handles MELEE vs Melee vs melee)
+                var actualTargetPath = GetActualPathCaseInsensitive(targetPath);
+                
+                var targetDir = Path.GetDirectoryName(actualTargetPath);
                 
                 if (targetDir != null)
                 {
@@ -210,6 +501,9 @@ namespace XvTHydrospanner.Services
                 }
                 
                 var isLst = IsLstFile(warehouseFile.OriginalFileName);
+                
+                // DEBUG: Log file type detection
+                ProgressMessage?.Invoke(this, $"File: {warehouseFile.OriginalFileName}, IsLST: {isLst}, Target: {modification.RelativeGamePath}, ActualPath: {actualTargetPath}");
                 
                 if (isLst)
                 {
@@ -219,31 +513,33 @@ namespace XvTHydrospanner.Services
                     // Backup base game LST file if not already done
                     await BackupBaseLstFileIfNeededAsync(modification.RelativeGamePath);
                     
-                    if (File.Exists(targetPath))
+                    if (File.Exists(actualTargetPath))
                     {
                         // Target LST exists - MERGE content
-                        ProgressMessage?.Invoke(this, $"Merging LST file: {warehouseFile.OriginalFileName}");
-                        await MergeLstFileAsync(warehouseFile.StoragePath, targetPath);
+                        ProgressMessage?.Invoke(this, $"Merging LST file: {warehouseFile.OriginalFileName} into {actualTargetPath}");
+                        await MergeLstFileAsync(warehouseFile.StoragePath, actualTargetPath);
                     }
                     else
                     {
                         // Target LST doesn't exist - COPY
-                        ProgressMessage?.Invoke(this, $"Copying new LST file: {warehouseFile.OriginalFileName}");
-                        await Task.Run(() => File.Copy(warehouseFile.StoragePath, targetPath, false));
+                        ProgressMessage?.Invoke(this, $"Copying new LST file: {warehouseFile.OriginalFileName} to {actualTargetPath}");
+                        await Task.Run(() => File.Copy(warehouseFile.StoragePath, actualTargetPath, false));
                     }
+                    
+                    ProgressMessage?.Invoke(this, $"LST file operation complete for {modification.RelativeGamePath}");
                 }
                 else
                 {
                     // REGULAR FILE HANDLING
                     // Create backup if requested and file exists
-                    if (createBackup && File.Exists(targetPath))
+                    if (createBackup && File.Exists(actualTargetPath))
                     {
-                        modification.BackupPath = await CreateBackupAsync(targetPath, modification.Id);
+                        modification.BackupPath = await CreateBackupAsync(actualTargetPath, modification.Id);
                         BackupCreated?.Invoke(this, modification.BackupPath);
                     }
                     
                     // Copy warehouse file to game location, overwriting
-                    await Task.Run(() => File.Copy(warehouseFile.StoragePath, targetPath, true));
+                    await Task.Run(() => File.Copy(warehouseFile.StoragePath, actualTargetPath, true));
                 }
                 
                 modification.IsApplied = true;

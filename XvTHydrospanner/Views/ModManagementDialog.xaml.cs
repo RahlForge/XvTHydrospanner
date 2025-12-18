@@ -73,6 +73,22 @@ namespace XvTHydrospanner.Views
                     return;
                 }
                 
+                // Check if profile is read-only
+                if (_activeProfile.IsReadOnly)
+                {
+                    MessageBox.Show(
+                        $"Cannot add mods to '{_activeProfile.Name}'.\n\n" +
+                        "This is a read-only profile (Base Game Install) that represents the clean game state.\n\n" +
+                        "To apply mods:\n" +
+                        "1. Create a new profile or clone this one\n" +
+                        "2. Add mods to the new profile\n" +
+                        "3. Apply the new profile",
+                        "Read-Only Profile",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
+                    return;
+                }
+                
                 var packageFiles = _warehouseManager.GetPackageFiles(_package.Id);
                 var addedModifications = new System.Collections.Generic.List<FileModification>();
                 

@@ -11,12 +11,14 @@ namespace XvTHydrospanner.Views
     public partial class RemoteModsPage : Page
     {
         private readonly RemoteWarehouseManager _remoteWarehouse;
+        private readonly ConfigurationManager? _configManager;
         private List<RemoteModPackage> _allRemotePackages = new();
         
-        public RemoteModsPage(RemoteWarehouseManager remoteWarehouse)
+        public RemoteModsPage(RemoteWarehouseManager remoteWarehouse, ConfigurationManager? configManager = null)
         {
             InitializeComponent();
             _remoteWarehouse = remoteWarehouse;
+            _configManager = configManager;
             
             // Subscribe to events
             _remoteWarehouse.DownloadProgress += OnDownloadProgress;
@@ -239,6 +241,113 @@ namespace XvTHydrospanner.Views
                         MessageBoxButton.OK, MessageBoxImage.Error);
                     StatusText.Text = "Download failed";
                 }
+            }
+        }
+        
+        private async void DeleteButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not Button button || button.Tag is not RemoteModPackage remotePackage)
+                return;
+            
+            try
+            {
+                // Validate that we have a GitHub token
+                if (_configManager == null)
+                {
+                    MessageBox.Show("Configuration manager not available. Cannot delete packages.", "Error",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+                
+                var config = _configManager.GetConfig();
+                var githubToken = config.GitHubToken;
+                
+                if (string.IsNullOrEmpty(githubToken))
+                {
+                    MessageBox.Show(
+                        "GitHub token not configured. You must have upload permissions to delete packages.\n\n" +
+                        "Please configure your GitHub Personal Access Token in Settings → Remote Repository Settings.",
+                        "Authentication Required",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
+                    return;
+                }
+                
+                // Validate token has write access
+                StatusText.Text = "Validating GitHub token...";
+                button.IsEnabled = false;
+                
+                if (!await _remoteWarehouse.ValidateGitHubTokenAsync(githubToken))
+                {
+                    MessageBox.Show(
+                        "Your GitHub token does not have write access to the remote repository.\n\n" +
+                        "Only users with push/admin access can delete packages.\n\n" +
+                        "Please check your token permissions in GitHub settings.",
+                        "Unauthorized",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Error);
+                    StatusText.Text = "Unauthorized to delete packages";
+                    button.IsEnabled = true;
+                    return;
+                }
+                
+                // Confirm deletion
+                var result = MessageBox.Show(
+                    $"Are you sure you want to delete package '{remotePackage.Name}'?\n\n" +
+                    $"This will permanently remove:\n" +
+                    $"• The package ZIP file\n" +
+                    $"• All {remotePackage.FileIds.Count} associated files\n" +
+                    $"• The package entry from the remote catalog\n\n" +
+                    "This action CANNOT be undone!",
+                    "Confirm Deletion",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Warning);
+                
+                if (result != MessageBoxResult.Yes)
+                {
+                    StatusText.Text = "Deletion cancelled";
+                    button.IsEnabled = true;
+                    return;
+                }
+                
+                // Perform deletion
+                StatusText.Text = $"Deleting package '{remotePackage.Name}'...";
+                
+                await _remoteWarehouse.DeletePackageAsync(remotePackage, githubToken);
+                
+                // Reload catalog to reflect changes
+                await LoadRemoteCatalogAsync();
+                
+                MessageBox.Show(
+                    $"Package '{remotePackage.Name}' has been successfully deleted from the remote library.\n\n" +
+                    $"All associated files have been removed.",
+                    "Deletion Complete",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+                
+                StatusText.Text = $"Successfully deleted package '{remotePackage.Name}'";
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                MessageBox.Show(
+                    $"Authorization failed: {ex.Message}\n\n" +
+                    "Please ensure your GitHub token has the necessary permissions.",
+                    "Unauthorized",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+                StatusText.Text = "Deletion failed - unauthorized";
+                button.IsEnabled = true;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"Failed to delete package: {ex.Message}\n\n" +
+                    "The package may have been partially deleted. Please check the remote repository.",
+                    "Error",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+                StatusText.Text = "Deletion failed";
+                button.IsEnabled = true;
             }
         }
     }

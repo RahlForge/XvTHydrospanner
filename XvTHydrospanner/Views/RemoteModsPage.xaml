@@ -63,7 +63,7 @@
                 <DataGridTextColumn Header="Version" Binding="{Binding Version}" Width="80"/>
                 <DataGridTextColumn Header="Files" Binding="{Binding FileIds.Count}" Width="60"/>
                 <DataGridCheckBoxColumn Header="Downloaded" Binding="{Binding IsDownloaded, Mode=OneWay}" Width="100" IsReadOnly="True"/>
-                <DataGridTemplateColumn Header="Actions" Width="60">
+                <DataGridTemplateColumn Header="Actions" Width="90">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
@@ -86,6 +86,27 @@
                                                 </Trigger>
                                                 <Trigger Property="IsEnabled" Value="False">
                                                     <Setter Property="Opacity" Value="0.3"/>
+                                                </Trigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+                                <Button Click="DeleteButton_Click"
+                                        Tag="{Binding}"
+                                        Height="28" Width="28"
+                                        Background="Transparent"
+                                        BorderBrush="Transparent"
+                                        ToolTip="Delete Package from Remote Library"
+                                        Cursor="Hand"
+                                        Margin="5,0,0,0">
+                                    <TextBlock Text="🗑" FontSize="16" Foreground="#F44336"/>
+                                    <Button.Style>
+                                        <Style TargetType="Button">
+                                            <Setter Property="Background" Value="Transparent"/>
+                                            <Setter Property="BorderBrush" Value="Transparent"/>
+                                            <Style.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter Property="Background" Value="#333333"/>
                                                 </Trigger>
                                             </Style.Triggers>
                                         </Style>

@@ -104,9 +104,28 @@ private async Task MergeLstFileAsync(string modLstPath, string targetPath)
         }
     }
     
+    // Check if target file ends with newline
+    bool targetEndsWithNewline = false;
+    if (File.Exists(targetPath))
+    {
+        var fileBytes = await File.ReadAllBytesAsync(targetPath);
+        if (fileBytes.Length > 0)
+        {
+            var lastByte = fileBytes[fileBytes.Length - 1];
+            targetEndsWithNewline = lastByte == 0x0A || lastByte == 0x0D; // LF or CR
+        }
+    }
+    
     // Append new lines if any
     if (linesToAdd.Count > 0)
     {
+        // If target doesn't end with newline, add one first
+        // This ensures mod content starts on a new line (prevents line concatenation)
+        if (File.Exists(targetPath) && !targetEndsWithNewline)
+        {
+            await File.AppendAllTextAsync(targetPath, Environment.NewLine, Encoding.UTF8);
+        }
+        
         await File.AppendAllLinesAsync(targetPath, linesToAdd, Encoding.UTF8);
     }
 }
@@ -120,6 +139,9 @@ private async Task MergeLstFileAsync(string modLstPath, string targetPath)
 - **CRITICAL: Preserves comment lines starting with `//`**
 - Comment lines define headers in XvT's in-game drop-down menus
 - Comments are always included even if they appear to duplicate
+- **CRITICAL: Ensures mod content starts on new line**
+- Checks if target ends with newline, adds one if missing
+- Prevents line concatenation (e.g., `MISSION01.TIECUSTOM.TIE`)
 - Appends to existing file (doesn't overwrite)
 
 **Why Comment Preservation is Critical**:

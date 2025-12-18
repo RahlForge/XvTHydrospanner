@@ -16,6 +16,12 @@ namespace XvTHydrospanner.Models
         public bool IsActive { get; set; }
         
         /// <summary>
+        /// Indicates if this profile is read-only (e.g., Base Game Install profile)
+        /// Read-only profiles cannot have mods applied to them
+        /// </summary>
+        public bool IsReadOnly { get; set; }
+        
+        /// <summary>
         /// List of file modifications in this profile
         /// </summary>
         public List<FileModification> FileModifications { get; set; } = new();
