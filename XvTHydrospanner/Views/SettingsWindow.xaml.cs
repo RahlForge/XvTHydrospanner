@@ -25,6 +25,7 @@ namespace XvTHydrospanner.Views
             ConfirmApplyCheckBox.IsChecked = config.ConfirmBeforeApply;
             RemoteOwnerTextBox.Text = config.RemoteRepositoryOwner ?? string.Empty;
             RemoteRepoTextBox.Text = config.RemoteRepositoryName ?? string.Empty;
+            ModdedInstallsRepoTextBox.Text = config.ModdedInstallsRepositoryName ?? string.Empty;
             RemoteBranchTextBox.Text = config.RemoteRepositoryBranch ?? string.Empty;
             GitHubTokenBox.Password = config.GitHubToken ?? string.Empty;
         }
@@ -71,6 +72,8 @@ namespace XvTHydrospanner.Views
                     ? null : RemoteOwnerTextBox.Text;
                 config.RemoteRepositoryName = string.IsNullOrWhiteSpace(RemoteRepoTextBox.Text) 
                     ? null : RemoteRepoTextBox.Text;
+                config.ModdedInstallsRepositoryName = string.IsNullOrWhiteSpace(ModdedInstallsRepoTextBox.Text) 
+                    ? null : ModdedInstallsRepoTextBox.Text;
                 config.RemoteRepositoryBranch = string.IsNullOrWhiteSpace(RemoteBranchTextBox.Text) 
                     ? null : RemoteBranchTextBox.Text;
                 config.GitHubToken = string.IsNullOrWhiteSpace(GitHubTokenBox.Password) 

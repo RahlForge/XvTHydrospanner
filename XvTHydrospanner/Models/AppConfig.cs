@@ -71,6 +71,11 @@ namespace XvTHydrospanner.Models
         public string? RemoteRepositoryBranch { get; set; }
         
         /// <summary>
+        /// GitHub repository name for modded game installations (optional)
+        /// </summary>
+        public string? ModdedInstallsRepositoryName { get; set; }
+        
+        /// <summary>
         /// GitHub Personal Access Token for uploading mods (optional, stored securely)
         /// </summary>
         public string? GitHubToken { get; set; }

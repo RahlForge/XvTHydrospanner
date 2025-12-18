@@ -59,6 +59,8 @@
                             Style="{StaticResource NavButtonStyle}" Click="WarehouseButton_Click"/>
                     <Button x:Name="RemoteModsButton" Content="🌐 Remote Mods" Height="45" 
                             Style="{StaticResource NavButtonStyle}" Click="RemoteModsButton_Click"/>
+                    <Button x:Name="ModdedInstallsButton" Content="📦 Modded Installs" Height="45" 
+                            Style="{StaticResource NavButtonStyle}" Click="ModdedInstallsButton_Click"/>
                     <Button x:Name="GameFilesButton" Content="Game Files Browser" Height="45" 
                             Style="{StaticResource NavButtonStyle}" Click="GameFilesButton_Click"/>
                     <Button x:Name="ApplyProfileButton" Content="▶ Apply Profile" Height="50" 

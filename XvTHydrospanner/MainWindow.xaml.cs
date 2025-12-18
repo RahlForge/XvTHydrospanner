@@ -16,6 +16,7 @@ namespace XvTHydrospanner
         private ProfileManager? _profileManager;
         private WarehouseManager? _warehouseManager;
         private RemoteWarehouseManager? _remoteWarehouseManager;
+        private ModdedInstallsManager? _moddedInstallsManager;
         private ModApplicator? _modApplicator;
         
         public MainWindow()
@@ -89,6 +90,10 @@ namespace XvTHydrospanner
                     config.RemoteRepositoryOwner, 
                     config.RemoteRepositoryName, 
                     config.RemoteRepositoryBranch);
+                _moddedInstallsManager = new ModdedInstallsManager(
+                    config.RemoteRepositoryOwner,
+                    config.ModdedInstallsRepositoryName,
+                    config.GitHubToken);
                 _modApplicator = new ModApplicator(config.GameInstallPath, config.BackupPath, _warehouseManager);
                 
                 // Subscribe to progress messages
@@ -181,6 +186,14 @@ namespace XvTHydrospanner
             
             ContentFrame.Navigate(new RemoteModsPage(_remoteWarehouseManager, _configManager));
             StatusText.Text = "Remote Mod Library";
+        }
+        
+        private void ModdedInstallsButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_moddedInstallsManager == null) return;
+            
+            ContentFrame.Navigate(new ModdedInstallsPage(_moddedInstallsManager));
+            StatusText.Text = "Modded Installs";
         }
         
         private void GameFilesButton_Click(object sender, RoutedEventArgs e)
