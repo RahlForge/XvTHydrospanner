@@ -42,15 +42,16 @@
 
 ```
 XvTHydrospanner/
-├── FIX_SUMMARY.md                      ← NEW: Executive summary of entire fix
-├── REMOTE_PACKAGE_FIX.md               ← NEW: Detailed technical doc (all 3 fixes)
-├── FILENAME_PRESERVATION_FIX.md        ← NEW: Archive extraction fix deep dive
-├── DOCUMENTATION_SUMMARY.md            ← THIS FILE
-├── SESSION_CHANGES.md                  ← UPDATED: Added Dec 11 changes
-├── REMOTE_WAREHOUSE_IMPLEMENTATION.md
-├── REMOTE_WAREHOUSE_SETUP.md
-├── ARCHITECTURE.md
-├── DEVELOPMENT_NOTES.md
+├── Documentation/
+│   ├── FIX_SUMMARY.md                      ← NEW: Executive summary of entire fix
+│   ├── REMOTE_PACKAGE_FIX.md               ← NEW: Detailed technical doc (all 3 fixes)
+│   ├── FILENAME_PRESERVATION_FIX.md        ← NEW: Archive extraction fix deep dive
+│   ├── DOCUMENTATION_SUMMARY.md            ← THIS FILE
+│   ├── SESSION_CHANGES.md                  ← UPDATED: Added Dec 11 changes
+│   ├── REMOTE_WAREHOUSE_IMPLEMENTATION.md
+│   ├── REMOTE_WAREHOUSE_SETUP.md
+│   ├── ARCHITECTURE.md
+│   └── DEVELOPMENT_NOTES.md
 └── Services/
     ├── ArchiveExtractor.cs             ← UPDATED: Preserves directory structure
     ├── RemoteWarehouseManager.cs       ← UPDATED: Enhanced comments + catalog mapping
@@ -95,7 +96,7 @@ XvTHydrospanner/
   - Directory structure preservation prevents filename collisions
   - Three-level matching strategy for file paths
   - OriginalFileName preservation
-- **Testing**: See REMOTE_PACKAGE_FIX.md section "Testing Recommendations"
+- **Testing**: See `Documentation/REMOTE_PACKAGE_FIX.md` section "Testing Recommendations"
 
 ### For Maintainers
 - **Backward compatibility**: Yes, older packages still work
@@ -125,7 +126,7 @@ XvTHydrospanner/
 
 ## Next Steps for Verification
 
-1. Read REMOTE_PACKAGE_FIX.md for full context
+1. Read `Documentation/REMOTE_PACKAGE_FIX.md` for full context
 2. Review inline comments in modified files
 3. Test with actual remote package download
 4. Verify files placed in correct locations

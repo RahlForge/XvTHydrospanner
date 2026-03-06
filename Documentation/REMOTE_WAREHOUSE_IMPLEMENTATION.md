@@ -42,7 +42,7 @@ Implemented a remote warehouse feature that allows users to browse and download 
 - **FileSizeConverter.cs** - Formats file sizes (B, KB, MB, GB)
 
 ### Documentation
-- **REMOTE_WAREHOUSE_SETUP.md** - Complete guide for setting up a GitHub repository
+- **Documentation/REMOTE_WAREHOUSE_SETUP.md** - Complete guide for setting up a GitHub repository
 - **sample-catalog.json** - Example catalog structure
 
 ## Files Modified
@@ -144,7 +144,7 @@ XvTHydrospanner-Mods/
 
 ## Testing Notes
 To test this feature:
-1. Create a GitHub repository with the structure in REMOTE_WAREHOUSE_SETUP.md
+1. Create a GitHub repository with the structure in `Documentation/REMOTE_WAREHOUSE_SETUP.md`
 2. Add a catalog.json file with at least one mod entry
 3. Upload actual mod files to the files/ directory
 4. Update the default repository constants in RemoteWarehouseManager.cs or use the AppConfig

@@ -326,5 +326,69 @@ namespace XvTHydrospanner.Views
                 }
             }
         }
+        
+        private async void RenamePackageButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button button && button.Tag is ModPackage package)
+            {
+                await RenamePackage(package);
+            }
+        }
+        
+        private async void ContextMenu_Rename_Click(object sender, RoutedEventArgs e)
+        {
+            if (WarehouseDataGrid.SelectedItem is ModPackage package)
+            {
+                await RenamePackage(package);
+            }
+        }
+        
+        private async Task RenamePackage(ModPackage package)
+        {
+            var inputDialog = new InputDialog("Rename Mod Package", $"Enter new name for '{package.Name}':");
+            inputDialog.InputTextBox.Text = package.Name;
+            inputDialog.InputTextBox.SelectAll();
+            
+            if (inputDialog.ShowDialog() == true)
+            {
+                var newName = inputDialog.InputText.Trim();
+                
+                if (string.IsNullOrWhiteSpace(newName))
+                {
+                    MessageBox.Show("Package name cannot be empty.", "Invalid Name",
+                        MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+                
+                if (newName.Equals(package.Name, StringComparison.OrdinalIgnoreCase))
+                {
+                    return; // No change
+                }
+                
+                try
+                {
+                    await _warehouseManager.RenamePackageAsync(package.Id, newName);
+                    LoadFiles();
+                    
+                    // Update the details panel if this package is currently selected
+                    if (WarehouseDataGrid.SelectedItem is ModPackage selectedPackage && selectedPackage.Id == package.Id)
+                    {
+                        var updatedPackage = _warehouseManager.GetPackage(package.Id);
+                        if (updatedPackage != null)
+                        {
+                            ShowPackageDetails(updatedPackage);
+                        }
+                    }
+                    
+                    MessageBox.Show($"Package renamed to '{newName}' successfully.", "Success",
+                        MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Error renaming package: {ex.Message}", "Error",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+        }
     }
 }

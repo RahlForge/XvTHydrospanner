@@ -50,6 +50,7 @@
                 </DataGrid.ColumnHeaderStyle>
                 <DataGrid.ContextMenu>
                     <ContextMenu>
+                        <MenuItem Header="Rename mod" Click="ContextMenu_Rename_Click"/>
                         <MenuItem Header="Upload to Remote" Click="ContextMenu_Upload_Click"/>
                         <MenuItem Header="Delete Package" Click="ContextMenu_Delete_Click"/>
                     </ContextMenu>
@@ -61,10 +62,31 @@
                     <DataGridTextColumn Header="Version" Binding="{Binding Version}" Width="80" MinWidth="80"/>
                     <DataGridTextColumn Header="Files" Binding="{Binding FileIds.Count}" Width="60" MinWidth="60"/>
                     <DataGridTextColumn Header="Date Added" Binding="{Binding DateAdded, StringFormat={}{0:yyyy-MM-dd}}" Width="100" MinWidth="100"/>
-                    <DataGridTemplateColumn Header="Actions" Width="80" MinWidth="80">
+                    <DataGridTemplateColumn Header="Actions" Width="120" MinWidth="120">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                    <Button Click="RenamePackageButton_Click" 
+                                            Tag="{Binding}" 
+                                            Height="28" Width="28" 
+                                            Margin="0,0,8,0"
+                                            Background="Transparent"
+                                            BorderBrush="Transparent"
+                                            ToolTip="Rename Package"
+                                            Cursor="Hand">
+                                        <TextBlock Text="✏" FontSize="16" Foreground="#2196F3"/>
+                                        <Button.Style>
+                                            <Style TargetType="Button">
+                                                <Setter Property="Background" Value="Transparent"/>
+                                                <Setter Property="BorderBrush" Value="Transparent"/>
+                                                <Style.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter Property="Background" Value="#333333"/>
+                                                    </Trigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                    </Button>
                                     <Button Click="UploadPackageButton_Click" 
                                             Tag="{Binding}" 
                                             Height="28" Width="28" 

@@ -54,9 +54,9 @@
 
 ### Documentation (4 files)
 - `README.md` - Complete project documentation
-- `QUICKSTART.md` - User quick start guide
-- `PROJECT_SUMMARY.md` - Technical project overview
-- `DEVELOPMENT_NOTES.md` - Developer notes and design decisions
+- `Documentation/QUICKSTART.md` - User quick start guide
+- `Documentation/PROJECT_SUMMARY.md` - Technical project overview
+- `Documentation/DEVELOPMENT_NOTES.md` - Developer notes and design decisions
 
 ### Build & Configuration (2 files)
 - `Build.ps1` - PowerShell build script
@@ -123,14 +123,14 @@ dotnet run --project XvTHydrospanner\XvTHydrospanner.csproj
 ## Next Steps
 
 ### For Users
-1. Read `QUICKSTART.md` for usage instructions
+1. Read `Documentation/QUICKSTART.md` for usage instructions
 2. Configure game path in settings
 3. Start adding files to warehouse
 4. Create your first profile
 
 ### For Developers
-1. Read `PROJECT_SUMMARY.md` for architecture overview
-2. Read `DEVELOPMENT_NOTES.md` for design decisions
+1. Read `Documentation/PROJECT_SUMMARY.md` for architecture overview
+2. Read `Documentation/DEVELOPMENT_NOTES.md` for design decisions
 3. Open solution in Visual Studio 2022
 4. Build and run (F5)
 
@@ -153,10 +153,11 @@ XvTHydrospanner/
 │
 ├── XvTHydrospanner.sln
 ├── README.md
-├── QUICKSTART.md
-├── PROJECT_SUMMARY.md
-├── DEVELOPMENT_NOTES.md
-├── FILE_LISTING.md
+├── Documentation/
+│   ├── QUICKSTART.md
+│   ├── PROJECT_SUMMARY.md
+│   ├── DEVELOPMENT_NOTES.md
+│   └── FILE_LISTING.md
 ├── Build.ps1
 ├── .gitignore
 │

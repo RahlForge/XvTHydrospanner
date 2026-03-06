@@ -151,5 +151,5 @@ You can give other users access to upload:
 ## Questions?
 
 Check the full documentation:
-- `REMOTE_WAREHOUSE_SETUP.md` - Repository structure
-- `REMOTE_WAREHOUSE_IMPLEMENTATION.md` - Technical details
+- `Documentation/REMOTE_WAREHOUSE_SETUP.md` - Repository structure
+- `Documentation/REMOTE_WAREHOUSE_IMPLEMENTATION.md` - Technical details

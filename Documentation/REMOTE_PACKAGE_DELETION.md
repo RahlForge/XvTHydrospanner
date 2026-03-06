@@ -496,8 +496,8 @@ Potential improvements (not currently implemented):
 
 ## Documentation Updates
 
-1. **SESSION_CHANGES.md** - Added feature documentation
-2. **REMOTE_PACKAGE_DELETION.md** (this file) - Complete technical docs
+1. **Documentation/SESSION_CHANGES.md** - Added feature documentation
+2. **Documentation/REMOTE_PACKAGE_DELETION.md** (this file) - Complete technical docs
 
 ## Related Features
 

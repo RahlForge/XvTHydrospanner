@@ -594,7 +594,7 @@ if (file != null && !string.IsNullOrEmpty(file.ModPackageId))
    - Updated `LoadProfiles()` to call indicator update
    - Updated `ProfilesListBox_SelectionChanged` to load packages
 
-3. **SESSION_CHANGES.md**:
+3. **Documentation/SESSION_CHANGES.md**:
    - Documented all three improvements
 
 ## Testing Checklist

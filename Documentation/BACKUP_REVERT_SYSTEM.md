@@ -411,10 +411,10 @@ private async Task LoadBaseLstFileRegistryAsync()
 ## Documentation
 
 **Related Files**:
-1. **LST_FILE_HANDLING.md** - LST-specific backup and merging
-2. **INTELLIGENT_LST_MERGING.md** - Parsing and merge algorithm
-3. **SESSION_CHANGES.md** - Recent fix documentation
-4. **BACKUP_REVERT_SYSTEM.md** (this file) - Complete system overview
+1. **Documentation/LST_FILE_HANDLING.md** - LST-specific backup and merging
+2. **Documentation/INTELLIGENT_LST_MERGING.md** - Parsing and merge algorithm
+3. **Documentation/SESSION_CHANGES.md** - Recent fix documentation
+4. **Documentation/BACKUP_REVERT_SYSTEM.md** (this file) - Complete system overview
 
 ## Summary
 

@@ -246,16 +246,16 @@ BONUS01.TIE
 
 ## Documentation Updates
 
-1. **LST_FILE_HANDLING.md**:
+1. **Documentation/LST_FILE_HANDLING.md**:
    - Added "Why Comment Preservation is Critical" section
    - Updated code examples to show comment handling
    - Added explanation of in-game drop-down menus
 
-2. **SESSION_CHANGES.md**:
+2. **Documentation/SESSION_CHANGES.md**:
    - Added "CRITICAL: Preserves comment lines" note
    - Explained purpose of comments in XvT
 
-3. **LST_COMMENT_PRESERVATION.md** (this file):
+3. **Documentation/LST_COMMENT_PRESERVATION.md** (this file):
    - Complete documentation of the issue and solution
 
 ## Related Code

@@ -164,24 +164,24 @@ After downloading a mod package from remote library:
 
 ## 📚 DOCUMENTATION CREATED
 
-1. **REMOTE_PACKAGE_FIX.md** - Comprehensive technical documentation
+1. **Documentation/REMOTE_PACKAGE_FIX.md** - Comprehensive technical documentation
    - Detailed root cause analysis
    - All three fixes explained with code examples
    - Step-by-step flow diagrams
    - Backward compatibility notes
    - Testing recommendations
 
-2. **FILENAME_PRESERVATION_FIX.md** - Focused on archive extraction fix
+2. **Documentation/FILENAME_PRESERVATION_FIX.md** - Focused on archive extraction fix
    - Visual comparisons (before/after)
    - Why filenames matter for mods
    - Critical importance of directory structure
    - Verification steps
 
-3. **SESSION_CHANGES.md** - Updated with December 11 changes
+3. **Documentation/SESSION_CHANGES.md** - Updated with December 11 changes
    - All three fixes documented
    - Settings window scrollability fix included
 
-4. **DOCUMENTATION_SUMMARY.md** - Updated with latest info
+4. **Documentation/DOCUMENTATION_SUMMARY.md** - Updated with latest info
    - Quick reference for all audiences
    - Files changed summary
    - Build status

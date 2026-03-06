@@ -17,7 +17,7 @@ XvT Hydrospanner is a comprehensive mod management application for Star Wars: X-
 XvTHydrospanner/
 ├── XvTHydrospanner.sln              # Visual Studio solution
 ├── README.md                         # Full documentation
-├── QUICKSTART.md                     # User guide
+├── Documentation/QUICKSTART.md       # User guide
 ├── Build.ps1                         # Build script
 ├── .gitignore                        # Git ignore rules
 │

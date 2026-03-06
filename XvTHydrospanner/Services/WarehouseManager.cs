@@ -610,5 +610,25 @@ namespace XvTHydrospanner.Services
             _packages.Remove(package);
             await SavePackagesAsync();
         }
+        
+        /// <summary>
+        /// Rename a mod package
+        /// </summary>
+        public async Task RenamePackageAsync(string packageId, string newName)
+        {
+            var package = GetPackage(packageId);
+            if (package == null)
+                throw new InvalidOperationException($"Package {packageId} not found");
+            
+            if (string.IsNullOrWhiteSpace(newName))
+                throw new ArgumentException("Package name cannot be empty", nameof(newName));
+            
+            // Check if a package with the new name already exists
+            if (_packages.Any(p => p.Id != packageId && p.Name.Equals(newName, StringComparison.OrdinalIgnoreCase)))
+                throw new InvalidOperationException($"A package with the name '{newName}' already exists");
+            
+            package.Name = newName;
+            await SavePackagesAsync();
+        }
     }
 }

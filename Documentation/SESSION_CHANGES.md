@@ -48,7 +48,7 @@
 - ✅ Backward compatible with older package formats
 - ✅ Manual imports still work with detection logic
 
-**Documentation**: See `REMOTE_PACKAGE_FIX.md` for detailed technical documentation
+**Documentation**: See `Documentation/REMOTE_PACKAGE_FIX.md` for detailed technical documentation
 
 ### 2. Settings Window Made Scrollable
 **File**: `XvTHydrospanner/Views/SettingsWindow.xaml`
@@ -122,7 +122,7 @@
 - Users see progress during operations
 - Automatic process - no manual file management needed
 
-**Documentation**: See `LST_FILE_HANDLING.md` for complete technical details
+**Documentation**: See `Documentation/LST_FILE_HANDLING.md` for complete technical details
 
 ### 4. Implemented Automatic Page Refresh for Better User Feedback
 **Files**:
@@ -1039,7 +1039,7 @@ This session included multiple enhancements to the XvT Hydrospanner mod manager,
 5. Added `ContextMenu_Download_Click()` handler with proper error handling and status updates
 
 ### 5. Documentation Updates
-**File**: `ARCHIVE_SUPPORT.md`
+**File**: `Documentation/ARCHIVE_SUPPORT.md`
 
 Added comprehensive documentation for the Copy to Game Root feature including:
 - Overview of the feature

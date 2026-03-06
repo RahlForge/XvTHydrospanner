@@ -648,9 +648,9 @@ if (currentSection == null)
 
 ## Documentation Updates
 
-1. **SESSION_CHANGES.md** - Added comprehensive section
-2. **INTELLIGENT_LST_MERGING.md** (this file) - Complete technical docs
-3. **LST_FILE_HANDLING.md** - Will need update with new approach
+1. **Documentation/SESSION_CHANGES.md** - Added comprehensive section
+2. **Documentation/INTELLIGENT_LST_MERGING.md** (this file) - Complete technical docs
+3. **Documentation/LST_FILE_HANDLING.md** - Will need update with new approach
 
 ## Migration Notes
 

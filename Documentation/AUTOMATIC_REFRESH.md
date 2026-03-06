@@ -460,10 +460,10 @@ if (_selectedProfile != null)
    - Added refresh call to ProfileManagementPage after creating profile
    - Checks if page is currently visible before refreshing
 
-4. **SESSION_CHANGES.md**:
-   - Documented the changes
+4. **Documentation/SESSION_CHANGES.md**:
+    - Documented the changes
 
-5. **AUTOMATIC_REFRESH.md** (this file):
+5. **Documentation/AUTOMATIC_REFRESH.md** (this file):
    - Complete technical documentation
 
 ## Performance Considerations

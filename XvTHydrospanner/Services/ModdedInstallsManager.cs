@@ -41,7 +41,7 @@ namespace XvTHydrospanner.Services
         }
         
         /// <summary>
-        /// Get list of available branches (each branch is a different modded install)
+        /// Get list of available branches (each branch is a different installation setup)
         /// </summary>
         public async Task<List<string>> GetAvailableBranchesAsync()
         {
@@ -155,44 +155,73 @@ namespace XvTHydrospanner.Services
                 ProgressMessage?.Invoke(this, "Preparing files...");
                 
                 // Get all files from the installation directory
-                var allFiles = Directory.GetFiles(installPath, "*.*", SearchOption.AllDirectories);
+                var allFiles = Directory.GetFiles(installPath, "*.*", SearchOption.AllDirectories)
+                    .Where(f => 
+                    {
+                        var ext = Path.GetExtension(f).ToLowerInvariant();
+                        // Exclude:
+                        // - .plt (pilot progress files)
+                        // - .exe (game executables)
+                        // - .cfg (user configuration files)
+                        return ext != ".plt" && ext != ".exe" && ext != ".cfg";
+                    })
+                    .ToArray();
                 
                 if (allFiles.Length == 0)
                 {
                     throw new InvalidOperationException("No files found in the selected directory.");
                 }
                 
-                ProgressMessage?.Invoke(this, $"Uploading {allFiles.Length} files...");
+                ProgressMessage?.Invoke(this, $"Uploading {allFiles.Length} files (excluding .plt, .exe, and .cfg files)...");
                 
-                // Get the default branch's latest commit SHA
-                var defaultBranchUrl = $"https://api.github.com/repos/{_repositoryOwner}/{_repositoryName}/git/refs/heads/main";
-                var branchResponse = await _httpClient.GetStringAsync(defaultBranchUrl);
-                var branchData = JsonConvert.DeserializeObject<JObject>(branchResponse);
-                var baseSha = branchData?["object"]?["sha"]?.ToString();
+                // Check if branch exists
+                var branchCheckUrl = $"https://api.github.com/repos/{_repositoryOwner}/{_repositoryName}/git/refs/heads/{branchName}";
+                bool branchExists = false;
+                string? baseSha = null;
+                
+                try
+                {
+                    var branchResponse = await _httpClient.GetStringAsync(branchCheckUrl);
+                    var branchData = JsonConvert.DeserializeObject<JObject>(branchResponse);
+                    baseSha = branchData?["object"]?["sha"]?.ToString();
+                    branchExists = true;
+                    ProgressMessage?.Invoke(this, $"Branch '{branchName}' exists, updating...");
+                }
+                catch (HttpRequestException)
+                {
+                    // Branch doesn't exist, get main branch SHA to create new branch from
+                    ProgressMessage?.Invoke(this, $"Creating new branch '{branchName}'...");
+                    var defaultBranchUrl = $"https://api.github.com/repos/{_repositoryOwner}/{_repositoryName}/git/refs/heads/main";
+                    var mainBranchResponse = await _httpClient.GetStringAsync(defaultBranchUrl);
+                    var mainBranchData = JsonConvert.DeserializeObject<JObject>(mainBranchResponse);
+                    baseSha = mainBranchData?["object"]?["sha"]?.ToString();
+                }
                 
                 if (string.IsNullOrEmpty(baseSha))
                 {
-                    throw new InvalidOperationException("Could not get base commit SHA from main branch.");
+                    throw new InvalidOperationException("Could not get base commit SHA.");
                 }
                 
-                // Create a new branch
-                ProgressMessage?.Invoke(this, $"Creating branch '{branchName}'...");
-                var createBranchUrl = $"https://api.github.com/repos/{_repositoryOwner}/{_repositoryName}/git/refs";
-                var createBranchData = new
+                // Create a new branch if it doesn't exist
+                if (!branchExists)
                 {
-                    @ref = $"refs/heads/{branchName}",
-                    sha = baseSha
-                };
-                var createBranchContent = new StringContent(
-                    JsonConvert.SerializeObject(createBranchData),
-                    Encoding.UTF8,
-                    "application/json");
-                var createBranchResult = await _httpClient.PostAsync(createBranchUrl, createBranchContent);
-                
-                if (!createBranchResult.IsSuccessStatusCode)
-                {
-                    var errorContent = await createBranchResult.Content.ReadAsStringAsync();
-                    throw new InvalidOperationException($"Failed to create branch: {errorContent}");
+                    var createBranchUrl = $"https://api.github.com/repos/{_repositoryOwner}/{_repositoryName}/git/refs";
+                    var createBranchData = new
+                    {
+                        @ref = $"refs/heads/{branchName}",
+                        sha = baseSha
+                    };
+                    var createBranchContent = new StringContent(
+                        JsonConvert.SerializeObject(createBranchData),
+                        Encoding.UTF8,
+                        "application/json");
+                    var createBranchResult = await _httpClient.PostAsync(createBranchUrl, createBranchContent);
+                    
+                    if (!createBranchResult.IsSuccessStatusCode)
+                    {
+                        var errorContent = await createBranchResult.Content.ReadAsStringAsync();
+                        throw new InvalidOperationException($"Failed to create branch: {errorContent}");
+                    }
                 }
                 
                 // Create blobs and tree entries for all files
