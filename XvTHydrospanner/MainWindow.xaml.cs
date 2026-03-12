@@ -18,6 +18,7 @@ namespace XvTHydrospanner
         private RemoteWarehouseManager? _remoteWarehouseManager;
         private ModdedInstallsManager? _moddedInstallsManager;
         private ModApplicator? _modApplicator;
+        private BaseGameBackupManager? _backupManager;
         
         public MainWindow()
         {
@@ -52,37 +53,23 @@ namespace XvTHydrospanner
                 // Load configuration
                 var config = await _configManager.LoadConfigAsync();
                 
-                // Validate configuration
-                var (isValid, errors) = _configManager.ValidateConfig();
-                if (isValid == false)
+                // Ensure all storage directories are configured and exist.
+                // GameInstallPath is NOT validated here — it is established
+                // during the base game backup setup flow below.
+                var storageReady = await InitializeStoragePathsAsync(config);
+                if (!storageReady)
                 {
-                    // Show message if game install path is not set
-                    if (string.IsNullOrWhiteSpace(config.GameInstallPath))
-                    {
-                        MessageBox.Show(
-                            "Game installation path is not configured.\n\n" +
-                            "⚠️ IMPORTANT: Please select a CLEAN installation folder of Star Wars X-Wing vs TIE Fighter.\n\n" +
-                            "A clean install means:\n" +
-                            "• No existing mods installed\n" +
-                            "• Original, unmodified game files\n" +
-                            "• Fresh installation from GOG/Steam/CD\n\n" +
-                            "This will be used as the base for creating modded profiles.",
-                            "Configuration Required",
-                            MessageBoxButton.OK,
-                            MessageBoxImage.Information);
-                    }
-                    
-                    // Show settings dialog if config is invalid
-                    var settingsWindow = new SettingsWindow(_configManager);
-                    if (settingsWindow.ShowDialog() != true)
-                    {
-                        Application.Current.Shutdown();
-                        return;
-                    }
-                    config = _configManager.GetConfig();
+                    Application.Current.Shutdown();
+                    return;
                 }
+                config = _configManager.GetConfig();
                 
-                // Initialize services with loaded config
+                // Initialize the backup manager with the configured path
+                _backupManager = new BaseGameBackupManager(config.BaseGameBackupPath);
+                
+                // Initialize services with loaded config.
+                // ModApplicator is intentionally NOT initialized here — it requires a
+                // valid GameInstallPath which is only confirmed after backup setup.
                 _profileManager = new ProfileManager(config.ProfilesPath);
                 _warehouseManager = new WarehouseManager(config.WarehousePath);
                 _remoteWarehouseManager = new RemoteWarehouseManager(
@@ -94,20 +81,31 @@ namespace XvTHydrospanner
                     config.RemoteRepositoryOwner,
                     config.ModdedInstallsRepositoryName,
                     config.GitHubToken);
-                _modApplicator = new ModApplicator(config.GameInstallPath, config.BackupPath, _warehouseManager);
-                
-                // Subscribe to progress messages
-                _modApplicator.ProgressMessage += (sender, message) => 
-                {
-                    Dispatcher.Invoke(() => StatusText.Text = message);
-                };
                 
                 // Load data
                 await _warehouseManager.LoadCatalogAsync();
                 await _profileManager.LoadAllProfilesAsync();
                 
-                // Create Base Game Install profile if no profiles exist
-                await CreateBaseGameProfileIfNeededAsync();
+                // Require base game backup before proceeding. This runs on first launch
+                // and any time the backup is missing (e.g. user deleted it).
+                if (!config.FirstRunCompleted || !_backupManager.BackupExists())
+                {
+                    var completed = await RunFirstTimeBackupSetupAsync(config);
+                    if (!completed)
+                    {
+                        Application.Current.Shutdown();
+                        return;
+                    }
+                    config = _configManager.GetConfig();
+                }
+                else
+                {
+                    // Returning user: backup is healthy — initialize ModApplicator now.
+                    InitializeModApplicator(config);
+                    
+                    // Ensure the Base Game Install profile exists for returning users
+                    await EnsureBaseGameProfileExistsAsync(config);
+                }
                 
                 // Update UI
                 UpdateActiveProfileDisplay();
@@ -121,6 +119,185 @@ namespace XvTHydrospanner
                 MessageBox.Show($"Error initializing application: {ex.Message}", "Error", 
                     MessageBoxButton.OK, MessageBoxImage.Error);
                 Application.Current.Shutdown();
+            }
+        }
+        
+        /// <summary>
+        /// Initializes (or re-initializes) the ModApplicator with the current game install path.
+        /// Must only be called after a valid GameInstallPath is confirmed via backup setup.
+        /// </summary>
+        private void InitializeModApplicator(AppConfig config)
+        {
+            _modApplicator = new ModApplicator(config.GameInstallPath, config.BackupPath, _warehouseManager);
+            _modApplicator.ProgressMessage += (s, message) =>
+            {
+                Dispatcher.Invoke(() => StatusText.Text = message);
+            };
+        }
+
+        /// <summary>
+        /// Ensures all storage directories (Warehouse, Profiles, Backup, BaseGameBackup) exist.
+        /// If any path is missing or unconfigured, shows a dialog for the user to choose paths.
+        /// Returns true if all paths are ready, false if the user cancelled.
+        /// </summary>
+        private async System.Threading.Tasks.Task<bool> InitializeStoragePathsAsync(AppConfig config)
+        {
+            if (_configManager == null) return false;
+
+            var appDataPath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "XvTHydrospanner");
+
+            // Build defaults for any path that is empty
+            var defaultWarehouse     = string.IsNullOrWhiteSpace(config.WarehousePath)
+                                        ? Path.Combine(appDataPath, "Warehouse") : config.WarehousePath;
+            var defaultProfiles      = string.IsNullOrWhiteSpace(config.ProfilesPath)
+                                        ? Path.Combine(appDataPath, "Profiles") : config.ProfilesPath;
+            var defaultBackup        = string.IsNullOrWhiteSpace(config.BackupPath)
+                                        ? Path.Combine(appDataPath, "Backups") : config.BackupPath;
+            var defaultBaseGameBackup = string.IsNullOrWhiteSpace(config.BaseGameBackupPath)
+                                        ? Path.Combine(appDataPath, "BaseGameBackup") : config.BaseGameBackupPath;
+
+            // Check whether any configured path is missing from disk
+            bool anyMissing = !Directory.Exists(defaultWarehouse)
+                           || !Directory.Exists(defaultProfiles)
+                           || !Directory.Exists(defaultBackup)
+                           || !Directory.Exists(defaultBaseGameBackup);
+
+            if (anyMissing)
+            {
+                var dialog = new ConfigureStoragePathsDialog(
+                    defaultWarehouse,
+                    defaultProfiles,
+                    defaultBackup,
+                    defaultBaseGameBackup);
+                dialog.Owner = this;
+
+                if (dialog.ShowDialog() != true)
+                    return false;
+
+                // Persist the chosen paths
+                await _configManager.SetWarehousePathAsync(dialog.WarehousePath);
+                await _configManager.SetProfilesPathAsync(dialog.ProfilesPath);
+                await _configManager.SetBackupPathAsync(dialog.BackupPath);
+
+                // BaseGameBackupPath doesn't have a dedicated setter — update via config directly
+                var updatedConfig = _configManager.GetConfig();
+                updatedConfig.BaseGameBackupPath = dialog.BaseGameBackupPath;
+                await _configManager.UpdateConfigAsync(updatedConfig);
+            }
+            else
+            {
+                // All paths exist — ensure they're in config in case defaults were used
+                bool configChanged = false;
+                var c = _configManager.GetConfig();
+
+                if (string.IsNullOrWhiteSpace(c.WarehousePath))     { c.WarehousePath     = defaultWarehouse;      configChanged = true; }
+                if (string.IsNullOrWhiteSpace(c.ProfilesPath))      { c.ProfilesPath      = defaultProfiles;       configChanged = true; }
+                if (string.IsNullOrWhiteSpace(c.BackupPath))        { c.BackupPath        = defaultBackup;         configChanged = true; }
+                if (string.IsNullOrWhiteSpace(c.BaseGameBackupPath)){ c.BaseGameBackupPath = defaultBaseGameBackup; configChanged = true; }
+
+                if (configChanged)
+                    await _configManager.UpdateConfigAsync(c);
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Runs the mandatory first-time backup setup flow.
+        /// Returns true if completed successfully, false if the user chose to exit.
+        /// Also called when the backup is missing (e.g. user deleted the folder).
+        /// </summary>
+        private async System.Threading.Tasks.Task<bool> RunFirstTimeBackupSetupAsync(AppConfig config)
+        {
+            if (_profileManager == null || _configManager == null || _backupManager == null)
+                return false;
+
+            while (true)
+            {
+                // Show the backup required dialog — lets user select (or confirm) game path
+                var requiredDialog = new BackupRequiredDialog();
+                requiredDialog.Owner = this;
+
+                if (requiredDialog.ShowDialog() != true || !requiredDialog.UserConfirmedBackup)
+                    return false;
+
+                // Persist the confirmed game path to config unconditionally
+                var selectedPath = requiredDialog.SelectedGamePath!;
+                await _configManager.SetGameInstallPathAsync(selectedPath);
+                config = _configManager.GetConfig();
+
+                // Run the backup using the confirmed path
+                var progressDialog = new BackupProgressDialog(_backupManager, selectedPath);
+                progressDialog.Owner = this;
+                var backupResult = progressDialog.ShowDialog();
+
+                if (backupResult == true)
+                    break; // Backup completed successfully
+
+                // Backup was cancelled or failed — ask user: retry or exit?
+                var choice = MessageBox.Show(
+                    "The base game backup was not completed.\n\n" +
+                    "XvT Hydrospanner cannot run without a base game backup.\n\n" +
+                    "Would you like to try again?",
+                    "Backup Incomplete",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Warning);
+
+                if (choice != MessageBoxResult.Yes)
+                    return false;
+                // Loop back to show the dialog again
+            }
+
+            // Backup completed — initialize ModApplicator with the confirmed path
+            InitializeModApplicator(config);
+
+            // Record backup completion
+            await _configManager.SetBaseGameBackupCompletedAsync(config.BaseGameBackupPath, DateTime.Now);
+
+            // Create the immutable Base Game Install profile
+            var baseProfile = await _profileManager.CreateBaseGameProfileAsync();
+            await _profileManager.SetActiveProfileAsync(baseProfile.Id);
+            await _configManager.SetActiveProfileAsync(baseProfile.Id);
+            await _configManager.SetBaseGameProfileIdAsync(baseProfile.Id);
+            await _configManager.SetFirstRunCompletedAsync();
+
+            StatusText.Text = "Base Game Install profile created";
+            return true;
+        }
+        
+        /// <summary>
+        /// For existing users: ensure the Base Game Install profile exists (migration path).
+        /// </summary>
+        private async System.Threading.Tasks.Task EnsureBaseGameProfileExistsAsync(AppConfig config)
+        {
+            if (_profileManager == null || _configManager == null) return;
+            
+            var profiles = _profileManager.GetAllProfiles();
+            
+            // If we already have a proper immutable base profile, nothing to do
+            if (profiles.Exists(p => p.IsBaseGameInstall && p.IsImmutable))
+                return;
+            
+            // Migrate legacy read-only "Base Game Install" profile to the new immutable form
+            var legacy = profiles.Find(p => p.Name == "Base Game Install" && p.IsReadOnly);
+            if (legacy != null)
+            {
+                legacy.IsBaseGameInstall = true;
+                legacy.IsImmutable = true;
+                await _profileManager.SaveProfileAsync(legacy);
+                await _configManager.SetBaseGameProfileIdAsync(legacy.Id);
+                return;
+            }
+            
+            // No profiles at all — create fresh
+            if (profiles.Count == 0)
+            {
+                var baseProfile = await _profileManager.CreateBaseGameProfileAsync();
+                await _profileManager.SetActiveProfileAsync(baseProfile.Id);
+                await _configManager.SetActiveProfileAsync(baseProfile.Id);
+                await _configManager.SetBaseGameProfileIdAsync(baseProfile.Id);
             }
         }
         
@@ -151,7 +328,7 @@ namespace XvTHydrospanner
         {
             if (_configManager == null) return;
             
-            var settingsWindow = new SettingsWindow(_configManager);
+            var settingsWindow = new SettingsWindow(_configManager, _backupManager);
             if (settingsWindow.ShowDialog() == true)
             {
                 var config = _configManager.GetConfig();
@@ -225,17 +402,17 @@ namespace XvTHydrospanner
                         return;
                     }
                     
-                    // Check if profile is read-only
-                    if (profileToApply.IsReadOnly)
+                    // Check if profile is immutable (Base Game Install)
+                    if (profileToApply.IsImmutable || profileToApply.IsReadOnly)
                     {
                         MessageBox.Show(
                             $"Cannot apply profile '{profileToApply.Name}'.\n\n" +
-                            "This is a read-only profile (Base Game Install) that represents the clean game state.\n\n" +
+                            "This is the immutable Base Game Install profile. It represents the clean game state.\n\n" +
                             "To apply mods:\n" +
-                            "1. Create a new profile or clone this one\n" +
-                            "2. Add mods to the new profile\n" +
-                            "3. Apply the new profile",
-                            "Read-Only Profile",
+                            "1. Clone this profile from Profile Management\n" +
+                            "2. Add mods to the clone\n" +
+                            "3. Apply the cloned profile",
+                            "Immutable Profile",
                             MessageBoxButton.OK,
                             MessageBoxImage.Warning);
                         return;
@@ -369,37 +546,6 @@ namespace XvTHydrospanner
             
             ContentFrame.Navigate(new ProfileManagementPage(_profileManager, _warehouseManager));
             StatusText.Text = "Profile Management";
-        }
-        
-        /// <summary>
-        /// Create a read-only "Base Game Install" profile if no profiles exist
-        /// This serves as a clean source for new profiles
-        /// </summary>
-        private async System.Threading.Tasks.Task CreateBaseGameProfileIfNeededAsync()
-        {
-            if (_profileManager == null) return;
-            
-            var profiles = _profileManager.GetAllProfiles();
-            
-            // Only create if no profiles exist
-            if (profiles.Count == 0)
-            {
-                var baseProfile = new ModProfile
-                {
-                    Name = "Base Game Install",
-                    Description = "Clean, unmodified base game installation. This profile cannot have mods applied and serves as a reference for creating new profiles.",
-                    IsReadOnly = true,
-                    IsActive = true,
-                    CreatedDate = DateTime.Now,
-                    LastModified = DateTime.Now
-                };
-                
-                await _profileManager.SaveProfileAsync(baseProfile);
-                await _profileManager.SetActiveProfileAsync(baseProfile.Id);
-                await _configManager.SetActiveProfileAsync(baseProfile.Id);
-                
-                StatusText.Text = "Created Base Game Install profile";
-            }
         }
     }
 }

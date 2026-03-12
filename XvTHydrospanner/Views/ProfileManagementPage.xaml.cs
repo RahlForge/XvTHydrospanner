@@ -91,7 +91,19 @@ namespace XvTHydrospanner.Views
                 ProfileDetailsPanel.DataContext = profile;
                 ProfileDetailsPanel.Visibility = Visibility.Visible;
                 LoadModPackagesForProfile(profile);
+                UpdateImmutableUI(profile);
             }
+        }
+        
+        private void UpdateImmutableUI(ModProfile profile)
+        {
+            var isImmutable = profile.IsImmutable;
+            
+            // Show/hide immutability banner
+            ImmutableBanner.Visibility = isImmutable ? Visibility.Visible : Visibility.Collapsed;
+            
+            // Disable delete for immutable profiles; clone is always available
+            DeleteProfileButton.IsEnabled = !isImmutable;
         }
         
         private void LoadModPackagesForProfile(ModProfile profile)
@@ -211,6 +223,17 @@ namespace XvTHydrospanner.Views
             {
                 MessageBox.Show("Please select a profile to delete.", "Info", 
                     MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+            
+            if (_selectedProfile.IsImmutable)
+            {
+                MessageBox.Show(
+                    $"'{_selectedProfile.Name}' is an immutable profile and cannot be deleted.\n\n" +
+                    "You can clone it to create a modifiable copy.",
+                    "Cannot Delete",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
                 return;
             }
             

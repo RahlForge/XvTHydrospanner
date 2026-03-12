@@ -55,7 +55,15 @@
                                                x:Name="ActiveCheckmark"/>
                                     
                                     <StackPanel Grid.Column="1">
-                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="White"/>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="White"/>
+                                            <Border Background="#3F3F46" CornerRadius="3" Padding="4,1,4,1"
+                                                    Margin="6,0,0,0"
+                                                    Visibility="{Binding IsImmutable, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                <TextBlock Text="IMMUTABLE" FontSize="9" Foreground="#AAAAAA"
+                                                           FontWeight="SemiBold"/>
+                                            </Border>
+                                        </StackPanel>
                                         <TextBlock Text="{Binding FileModifications.Count, StringFormat='{}{0} modifications'}" 
                                                    FontSize="10" Foreground="#999999"/>
                                     </StackPanel>
@@ -80,6 +88,19 @@
                     CornerRadius="5" Padding="20">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel x:Name="ProfileDetailsPanel" Visibility="Collapsed">
+                        
+                        <!-- Immutability Banner -->
+                        <Border x:Name="ImmutableBanner" Background="#2D2D00" BorderBrush="#6B6B00"
+                                BorderThickness="1" CornerRadius="4" Padding="12,10" Margin="0,0,0,16"
+                                Visibility="Collapsed">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="IMMUTABLE PROFILE" FontWeight="Bold" FontSize="11"
+                                           Foreground="#DDDD00" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                                <TextBlock TextWrapping="Wrap" FontSize="11" Foreground="#CCCC88" VerticalAlignment="Center"
+                                           Text="This profile cannot be edited, renamed, or deleted. You can clone it to create a modifiable copy."/>
+                            </StackPanel>
+                        </Border>
+                        
                         <TextBlock Text="{Binding Name}" FontSize="20" FontWeight="Bold" Foreground="White"/>
                         <TextBlock Text="{Binding Description}" FontSize="12" Foreground="#999999" 
                                    Margin="0,5,0,20" TextWrapping="Wrap"/>

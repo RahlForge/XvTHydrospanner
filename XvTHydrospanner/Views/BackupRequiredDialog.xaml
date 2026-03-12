@@ -1,0 +1,85 @@
+<Window x:Class="XvTHydrospanner.Views.BackupRequiredDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Base Game Backup Required" Height="480" Width="520"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Background="#252526">
+
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,16">
+            <TextBlock Text="Base Game Backup Required" FontSize="18" FontWeight="Bold"
+                       Foreground="White" Margin="0,0,0,8"/>
+            <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="#CCCCCC" LineHeight="20">
+                <Run Text="Before you can use XvT Hydrospanner, a one-time backup of your clean game installation must be created."/>
+            </TextBlock>
+        </StackPanel>
+
+        <!-- Details -->
+        <Border Grid.Row="1" Background="#1E1E1E" BorderBrush="#3F3F46" BorderThickness="1"
+                CornerRadius="4" Padding="16" Margin="0,0,0,16">
+            <StackPanel>
+                <TextBlock Text="What this does:" FontWeight="SemiBold" Foreground="White"
+                           Margin="0,0,0,8"/>
+                <TextBlock TextWrapping="Wrap" Foreground="#CCCCCC" FontSize="11" LineHeight="18"
+                           Text="&#x2022;  Copies your entire game directory to a secure backup location"/>
+                <TextBlock TextWrapping="Wrap" Foreground="#CCCCCC" FontSize="11" LineHeight="18"
+                           Margin="0,4,0,0"
+                           Text="&#x2022;  Creates an immutable 'Base Game Install' profile"/>
+                <TextBlock TextWrapping="Wrap" Foreground="#CCCCCC" FontSize="11" LineHeight="18"
+                           Margin="0,4,0,0"
+                           Text="&#x2022;  Allows you to restore the clean game state at any time from Settings"/>
+                <TextBlock TextWrapping="Wrap" Foreground="#999999" FontSize="10" FontStyle="Italic"
+                           Margin="0,12,0,0"
+                           Text="This backup is required and cannot be skipped. If you cancel, the application will close."/>
+            </StackPanel>
+        </Border>
+
+        <!-- Game Path Selection -->
+        <StackPanel Grid.Row="2" Margin="0,0,0,16">
+            <TextBlock Text="Game Installation Folder" FontWeight="SemiBold" Foreground="White"
+                       Margin="0,0,0,8"/>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBox x:Name="GamePathTextBox" Grid.Column="0"
+                         Height="28" Padding="6,4" Margin="0,0,8,0"
+                         Background="#1E1E1E" Foreground="White" CaretBrush="White"
+                         BorderBrush="#3F3F46" BorderThickness="1"
+                         VerticalContentAlignment="Center"
+                         FontSize="11"
+                         TextChanged="GamePathTextBox_TextChanged"/>
+                <Button x:Name="BrowseButton" Grid.Column="1"
+                        Content="Browse..." Width="80" Height="28"
+                        Click="BrowseButton_Click"/>
+            </Grid>
+            <!-- Validation status -->
+            <StackPanel x:Name="ValidationStatusPanel" Orientation="Horizontal" Margin="0,8,0,0">
+                <TextBlock x:Name="ValidationStatusIcon" Text="&#x26A0;" FontSize="13"
+                           Foreground="#888888" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                <TextBlock x:Name="ValidationStatusText" Text="No path selected"
+                           FontSize="11" Foreground="#888888" VerticalAlignment="Center"/>
+            </StackPanel>
+        </StackPanel>
+
+        <!-- Buttons -->
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button x:Name="CancelButton" Content="Cancel (Exit App)" Width="130" Height="30"
+                    Margin="0,0,10,0" Click="CancelButton_Click"/>
+            <Button x:Name="CreateBackupButton" Content="Create Backup" Width="130" Height="30"
+                    Style="{StaticResource PrimaryButtonStyle}"
+                    IsEnabled="False"
+                    IsDefault="True" Click="CreateBackupButton_Click"/>
+        </StackPanel>
+    </Grid>
+</Window>

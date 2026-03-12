@@ -22,6 +22,17 @@ namespace XvTHydrospanner.Models
         public bool IsReadOnly { get; set; }
         
         /// <summary>
+        /// Indicates if this is the Base Game Install profile (backed by BaseGameBackup)
+        /// </summary>
+        public bool IsBaseGameInstall { get; set; }
+        
+        /// <summary>
+        /// Indicates if this profile is immutable — cannot be edited, renamed, have mods added/removed, or deleted.
+        /// Immutable profiles CAN be cloned.
+        /// </summary>
+        public bool IsImmutable { get; set; }
+        
+        /// <summary>
         /// List of file modifications in this profile
         /// </summary>
         public List<FileModification> FileModifications { get; set; } = new();

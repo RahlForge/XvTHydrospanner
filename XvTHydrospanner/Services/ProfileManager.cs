@@ -110,6 +110,9 @@ namespace XvTHydrospanner.Services
             if (profile.IsActive)
                 throw new InvalidOperationException("Cannot delete the active profile");
             
+            if (profile.IsImmutable)
+                throw new InvalidOperationException($"Profile '{profile.Name}' is immutable and cannot be deleted");
+            
             var filePath = Path.Combine(_profilesPath, $"{profileId}.json");
             if (File.Exists(filePath))
             {
@@ -195,6 +198,44 @@ namespace XvTHydrospanner.Services
         public List<ModProfile> GetAllProfiles()
         {
             return _profiles.ToList();
+        }
+        
+        /// <summary>
+        /// Create (or return existing) immutable Base Game Install profile
+        /// </summary>
+        public async Task<ModProfile> CreateBaseGameProfileAsync()
+        {
+            // Return existing if already present
+            var existing = _profiles.FirstOrDefault(p => p.IsBaseGameInstall);
+            if (existing != null)
+                return existing;
+            
+            var profile = new ModProfile
+            {
+                Name = "Base Game Install",
+                Description = "Clean, unmodified base game installation. This profile is immutable and serves as the reference for creating new profiles. Restore it at any time via Settings.",
+                IsReadOnly = true,
+                IsBaseGameInstall = true,
+                IsImmutable = true,
+                IsActive = true,
+                CreatedDate = DateTime.Now,
+                LastModified = DateTime.Now
+            };
+            
+            await SaveProfileAsync(profile);
+            return profile;
+        }
+        
+        /// <summary>
+        /// Clone a profile. Immutable profiles can be cloned — the clone is NOT immutable.
+        /// </summary>
+        public async Task<ModProfile> CloneBaseGameProfileAsync(string newName)
+        {
+            var source = _profiles.FirstOrDefault(p => p.IsBaseGameInstall);
+            if (source == null)
+                throw new InvalidOperationException("Base Game Install profile not found");
+            
+            return await CloneProfileAsync(source.Id, newName);
         }
     }
 }

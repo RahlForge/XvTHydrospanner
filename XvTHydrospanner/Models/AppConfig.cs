@@ -1,3 +1,5 @@
+using System;
+
 namespace XvTHydrospanner.Models
 {
     /// <summary>
@@ -79,5 +81,33 @@ namespace XvTHydrospanner.Models
         /// GitHub Personal Access Token for uploading mods (optional, stored securely)
         /// </summary>
         public string? GitHubToken { get; set; }
+        
+        /// <summary>
+        /// Path to the base game backup directory (full copy of original game)
+        /// </summary>
+        public string BaseGameBackupPath { get; set; } = System.IO.Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "XvTHydrospanner",
+            "BaseGameBackup");
+        
+        /// <summary>
+        /// Whether the base game backup has been created
+        /// </summary>
+        public bool BaseGameBackupExists { get; set; }
+        
+        /// <summary>
+        /// Date and time when the base game backup was created
+        /// </summary>
+        public DateTime? BaseGameBackupCreatedDate { get; set; }
+        
+        /// <summary>
+        /// ID of the immutable Base Game Install profile
+        /// </summary>
+        public string? BaseGameProfileId { get; set; }
+        
+        /// <summary>
+        /// Whether the first-run backup setup has been completed
+        /// </summary>
+        public bool FirstRunCompleted { get; set; }
     }
 }

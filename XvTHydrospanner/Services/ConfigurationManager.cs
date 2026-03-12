@@ -124,6 +124,35 @@ namespace XvTHydrospanner.Services
         }
         
         /// <summary>
+        /// Mark the base game backup as complete and record metadata
+        /// </summary>
+        public async Task SetBaseGameBackupCompletedAsync(string backupPath, DateTime createdDate)
+        {
+            _config.BaseGameBackupPath = backupPath;
+            _config.BaseGameBackupExists = true;
+            _config.BaseGameBackupCreatedDate = createdDate;
+            await SaveConfigAsync();
+        }
+        
+        /// <summary>
+        /// Set the Base Game Install profile ID
+        /// </summary>
+        public async Task SetBaseGameProfileIdAsync(string profileId)
+        {
+            _config.BaseGameProfileId = profileId;
+            await SaveConfigAsync();
+        }
+        
+        /// <summary>
+        /// Mark first-run setup as complete
+        /// </summary>
+        public async Task SetFirstRunCompletedAsync()
+        {
+            _config.FirstRunCompleted = true;
+            await SaveConfigAsync();
+        }
+        
+        /// <summary>
         /// Set active profile
         /// </summary>
         public async Task SetActiveProfileAsync(string? profileId)
@@ -148,24 +177,23 @@ namespace XvTHydrospanner.Services
                 WarehousePath = Path.Combine(appDataPath, "Warehouse"),
                 ProfilesPath = Path.Combine(appDataPath, "Profiles"),
                 BackupPath = Path.Combine(appDataPath, "Backups"),
+                BaseGameBackupPath = Path.Combine(appDataPath, "BaseGameBackup"),
                 AutoBackup = true,
                 ConfirmBeforeApply = true,
                 MaxBackupVersions = 5,
-                Theme = "Dark"
+                Theme = "Dark",
+                FirstRunCompleted = false
             };
         }
         
         /// <summary>
-        /// Validate configuration
+        /// Validate that storage paths are configured.
+        /// Note: GameInstallPath is intentionally excluded — it is established
+        /// during the base game backup setup flow, not required at startup.
         /// </summary>
         public (bool isValid, List<string> errors) ValidateConfig()
         {
             var errors = new List<string>();
-            
-            if (string.IsNullOrWhiteSpace(_config.GameInstallPath))
-                errors.Add("Game install path is not set");
-            else if (Directory.Exists(_config.GameInstallPath) == false)
-                errors.Add("Game install path does not exist");
             
             if (string.IsNullOrWhiteSpace(_config.WarehousePath))
                 errors.Add("Warehouse path is not set");
@@ -175,6 +203,9 @@ namespace XvTHydrospanner.Services
             
             if (string.IsNullOrWhiteSpace(_config.BackupPath))
                 errors.Add("Backup path is not set");
+            
+            if (string.IsNullOrWhiteSpace(_config.BaseGameBackupPath))
+                errors.Add("Base game backup path is not set");
             
             return (errors.Count == 0, errors);
         }

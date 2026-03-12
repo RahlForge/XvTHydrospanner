@@ -1,0 +1,38 @@
+<Window x:Class="XvTHydrospanner.Views.BackupProgressDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Creating Base Game Backup" Height="260" Width="520"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Background="#252526"
+        Closing="Window_Closing">
+
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" Text="Backing Up Base Game" FontSize="18" FontWeight="Bold"
+                   Foreground="White" Margin="0,0,0,8"/>
+
+        <TextBlock Grid.Row="1" x:Name="StatusLabel" Text="Preparing..." FontSize="12"
+                   Foreground="#CCCCCC" Margin="0,0,0,12" TextWrapping="Wrap"/>
+
+        <ProgressBar Grid.Row="2" x:Name="ProgressBar" Height="18" Minimum="0" Maximum="100"
+                     Value="0" Margin="0,0,0,8"
+                     Foreground="#4EC9B0" Background="#3F3F46"/>
+
+        <TextBlock Grid.Row="3" x:Name="FileLabel" Text="" FontSize="10"
+                   Foreground="#888888" Margin="0,0,0,0" TextWrapping="Wrap"
+                   TextTrimming="CharacterEllipsis"/>
+
+        <Button Grid.Row="5" x:Name="CancelButton" Content="Cancel" Width="90" Height="30"
+                HorizontalAlignment="Right" Margin="0,16,0,0"
+                Click="CancelButton_Click"/>
+    </Grid>
+</Window>
